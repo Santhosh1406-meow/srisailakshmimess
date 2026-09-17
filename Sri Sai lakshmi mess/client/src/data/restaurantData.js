@@ -14,7 +14,8 @@ export const RESTAURANT_CONFIG = {
   openingHours: import.meta.env.VITE_OPENING_HOURS || 'Monday – Sunday: 7:00 AM – 10:00 PM',
   swiggyUrl: import.meta.env.VITE_SWIGGY_URL || 'https://www.swiggy.com/restaurants/sri-sai-lakshmi-mess-sivakasi',
   zomatoUrl: import.meta.env.VITE_ZOMATO_URL || 'https://www.zomato.com/sivakasi/sri-sai-lakshmi-mess',
-  mapEmbedUrl: import.meta.env.VITE_GOOGLE_MAP_EMBED_URL || 'https://www.google.com/maps/place/RATHNAVILAS+BUS+STOP/@9.4528819,77.8058464,125m/data=!3m1!1e3!4m6!3m5!1s0x3b06cf16c905dc97:0xdc6d5057c2d7e9a3!8m2!3d9.4530087!4d77.8062228!16s%2Fg%2F11q9j1zy7w?authuser=0&entry=ttu&g_ep=EgoyMDI2MDkwMi4wIKXMDSoASAFQAw%3D%3D'
+  mapEmbedUrl: import.meta.env.VITE_GOOGLE_MAP_EMBED_URL || 'https://maps.google.com/maps?q=9.4530087,77.8062228+(Sri+Sai+Lakshmi+Mess)&t=&z=17&ie=UTF8&iwloc=B&output=embed',
+  mapDirectUrl: 'https://www.google.com/maps/search/?api=1&query=9.4530087,77.8062228'
 };
 
 export const HIGHLIGHTS_DATA = [

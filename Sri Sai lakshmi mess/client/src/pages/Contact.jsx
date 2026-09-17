@@ -166,17 +166,45 @@ export default function ContactPage() {
         }}>
           
           {/* Map Embed Frame */}
-          <div style={{ position: 'relative', minHeight: '380px', width: '100%', backgroundColor: 'var(--color-bg-subtle)' }}>
+          <div style={{ position: 'relative', minHeight: '380px', width: '100%', backgroundColor: 'var(--color-bg-subtle)', display: 'flex', flexDirection: 'column' }}>
             <iframe
               title="Sri Sai Lakshmi Mess Location Map"
               src={RESTAURANT_CONFIG.mapEmbedUrl}
               width="100%"
               height="100%"
-              style={{ border: 0, minHeight: '380px', display: 'block' }}
+              style={{ border: 0, minHeight: '380px', flex: 1, display: 'block' }}
               allowFullScreen=""
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
+            <div style={{
+              padding: '0.6rem 1rem',
+              backgroundColor: '#fff',
+              borderTop: '1px solid var(--color-border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: '0.85rem'
+            }}>
+              <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>
+                📍 Sivakasi-626123, Tamil Nadu
+              </span>
+              <a
+                href={RESTAURANT_CONFIG.mapDirectUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Rathanavillas bus stop, Balaji Complex, Sivakasi')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: 'var(--color-primary)',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                Open in Google Maps →
+              </a>
+            </div>
           </div>
 
           {/* Connect Action Box */}
