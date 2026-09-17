@@ -62,44 +62,17 @@ export default function MenuPage() {
         </div>
 
         {/* Filter Controls & Search Bar */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          padding: '1.5rem',
-          borderRadius: 'var(--radius-md)',
-          boxShadow: 'var(--shadow-sm)',
-          border: '1px solid var(--color-border)',
-          marginBottom: '2.5rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.25rem'
-        }}>
+        <div className="menu-filter-card">
           
           {/* Category Tabs */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.65rem',
-            flexWrap: 'wrap'
-          }}>
+          <div className="menu-category-tabs">
             {CATEGORIES.map((cat) => {
               const isActive = selectedCategory === cat;
               return (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  style={{
-                    padding: '0.6rem 1.4rem',
-                    borderRadius: 'var(--radius-full)',
-                    fontWeight: 600,
-                    fontSize: '0.95rem',
-                    cursor: 'pointer',
-                    transition: 'all var(--transition-fast)',
-                    border: isActive ? '1.5px solid var(--color-primary)' : '1.5px solid var(--color-border)',
-                    backgroundColor: isActive ? 'var(--color-primary)' : '#ffffff',
-                    color: isActive ? '#ffffff' : 'var(--color-text-main)',
-                    boxShadow: isActive ? '0 4px 12px rgba(194, 65, 12, 0.25)' : 'none'
-                  }}
+                  className={`menu-category-pill ${isActive ? 'active' : ''}`}
                 >
                   {cat === 'All' ? '🍽️ All Dishes' : cat === 'Breakfast' ? '🥞 Breakfast' : cat === 'Meals' ? '🍛 Meals & Lunch' : '☕ Beverages'}
                 </button>
@@ -108,17 +81,9 @@ export default function MenuPage() {
           </div>
 
           {/* Search & Veg Filter Row */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '1rem',
-            paddingTop: '0.75rem',
-            borderTop: '1px dashed var(--color-border)'
-          }}>
+          <div className="menu-filter-row">
             {/* Search Input */}
-            <div style={{ position: 'relative', flex: '1 1 280px', maxWidth: '450px' }}>
+            <div className="menu-search-wrapper">
               <Search
                 size={18}
                 color="var(--color-text-light)"
@@ -137,19 +102,7 @@ export default function MenuPage() {
             {/* Veg-Only Filter Button */}
             <button
               onClick={() => setOnlyVeg(!onlyVeg)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.6rem 1.1rem',
-                borderRadius: 'var(--radius-sm)',
-                border: onlyVeg ? '1.5px solid var(--color-leaf-green)' : '1.5px solid var(--color-border)',
-                backgroundColor: onlyVeg ? 'var(--color-leaf-green-light)' : '#ffffff',
-                color: onlyVeg ? 'var(--color-leaf-green)' : 'var(--color-text-muted)',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                cursor: 'pointer'
-              }}
+              className={`menu-veg-filter-btn ${onlyVeg ? 'active' : ''}`}
             >
               <Leaf size={16} />
               <span>{onlyVeg ? '✓ Pure Veg Only' : 'Filter Pure Veg'}</span>

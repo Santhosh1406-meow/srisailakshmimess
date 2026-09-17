@@ -63,7 +63,17 @@ export default function Navbar() {
     { name: 'Contact', path: '/contact' }
   ];
 
-  const initials = user ? user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() : '';
+  const initials = user
+    ? user.name
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((n) => n[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase() || 'U'
+    : '';
 
   return (
     <>
