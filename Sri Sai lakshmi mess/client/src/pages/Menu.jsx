@@ -3,6 +3,7 @@ import { Search, Utensils, Sparkles, Filter, Leaf, RefreshCw, ShoppingBag, Arrow
 import DishCard from '../components/DishCard';
 import { MenuGridSkeleton } from '../components/SkeletonLoader';
 import { fetchMenu } from '../services/api';
+import { filterFallbackMenu } from '../data/defaultMenu';
 import { useCart } from '../context/CartContext';
 
 const CATEGORIES = ['All', 'Breakfast', 'Meals', 'Beverages'];
@@ -24,10 +25,13 @@ export default function MenuPage() {
         category: selectedCategory === 'All' ? undefined : selectedCategory,
         search: searchQuery.trim() || undefined
       });
-      setMenuItems(data);
+      setMenuItems(data && data.length > 0 ? data : filterFallbackMenu({ category: selectedCategory === 'All' ? undefined : selectedCategory, search: searchQuery.trim() || undefined }));
     } catch (err) {
-      console.error('Failed to load menu:', err);
-      setError('Unable to load latest menu items from server. Please try refreshing.');
+      console.warn('Network issue loading menu, using offline catalog:', err);
+      setMenuItems(filterFallbackMenu({
+        category: selectedCategory === 'All' ? undefined : selectedCategory,
+        search: searchQuery.trim() || undefined
+      }));
     } finally {
       setLoading(false);
     }
