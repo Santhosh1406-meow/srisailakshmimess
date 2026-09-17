@@ -1,9 +1,10 @@
 const app = require('./src/app');
 const config = require('./src/config');
+const { initDb } = require('./src/config/db');
 
 const PORT = config.port;
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`=======================================================`);
   console.log(`🍛 Sri Sai Lakshmi Mess API Server is running!`);
   console.log(`📡 Port: ${PORT}`);
@@ -11,6 +12,9 @@ const server = app.listen(PORT, () => {
   console.log(`🏥 Health: http://localhost:${PORT}/api/health`);
   console.log(`📋 Menu:   http://localhost:${PORT}/api/menu`);
   console.log(`=======================================================`);
+
+  // Initialize Neon DB connection & tables if DATABASE_URL provided
+  await initDb();
 });
 
 // Handle unhandled promise rejections
