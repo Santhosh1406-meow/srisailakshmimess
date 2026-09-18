@@ -73,6 +73,7 @@ html {
   color: var(--color-text-main);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden; /* Prevent horizontal scroll on mobile */
 }
 
 body {
@@ -80,12 +81,15 @@ body {
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
+  width: 100%;
 }
 
 #root {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 h1,
@@ -127,11 +131,14 @@ img {
   margin-right: auto;
   padding-left: 1.5rem;
   padding-right: 1.5rem;
+  box-sizing: border-box; /* Ensure padding doesn't cause overflow */
 }
 
 .section-padding {
   padding-top: 5rem;
   padding-bottom: 5rem;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 @media (max-width: 768px) {
@@ -1026,6 +1033,8 @@ img {
   font-size: 0.8rem;
   font-weight: 500;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden; /* Prevent top bar from causing horizontal scroll */
+  width: 100%;
 }
 
 .navbar-top-bar-inner {
@@ -1036,6 +1045,7 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  min-width: 0; /* Allow shrinking below content size */
 }
 
 .top-bar-left {
@@ -1425,8 +1435,8 @@ img {
 
 @media (max-width: 680px) {
 
-  .top-bar-left .top-bar-divider,
-  .top-bar-left .top-bar-item:nth-child(3) {
+  /* Hide the entire top info bar on small screens — it overflows on mobile */
+  .navbar-top-bar {
     display: none;
   }
 

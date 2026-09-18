@@ -48,9 +48,11 @@ export default function Home() {
         background: 'linear-gradient(rgba(17, 10, 5, 0.75), rgba(28, 15, 8, 0.85)), url(https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?auto=format&fit=crop&w=1920&q=80)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
+        /* backgroundAttachment: fixed removed — causes horizontal overflow on mobile browsers */
         color: '#ffffff',
-        padding: '5rem 0'
+        padding: '5rem 0',
+        width: '100%',
+        overflowX: 'hidden'
       }}>
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
           <div style={{ maxWidth: '780px' }}>

@@ -14,9 +14,9 @@ export default function MainLayout() {
   }, [pathname]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflowX: 'hidden', width: '100%' }}>
       <Navbar />
-      <main style={{ flex: 1 }}>
+      <main style={{ flex: 1, width: '100%', overflowX: 'hidden' }}>
         <Outlet />
       </main>
       <FloatingActions />
