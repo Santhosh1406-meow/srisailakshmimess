@@ -1,0 +1,14 @@
+[
+  {
+    "id": "USR-ADMIN-001",
+    "name": "Mess Manager (Admin)",
+    "email": "admin@srisailakshmimess.com",
+    "phone": "9876543210",
+    "passwordHash": "$2b$10$92VCe6qjZXJntoku38KIYemjDgN9EqLOUge/mwEIh9i.C0XoPZSVa",
+    "role": "admin",
+    "vehicleNumber": null,
+    "isAvailable": false,
+    "totalDeliveries": 0,
+    "createdAt": "2026-09-18T07:18:46.224Z"
+  }
+]

@@ -1,64 +1,74 @@
+const fs = require('fs');
+const path = require('path');
 const User = require('../models/User');
 
+const DATA_DIR = path.join(__dirname, '../data');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+
 /**
- * User Service — in-memory store (swap for DB repository in production)
+ * User Service with Local File Persistence
  */
 class UserService {
   constructor() {
     this.users = [];
-    this._seedUsers();
+    this._initStorage();
   }
 
-  async _seedUsers() {
+  async _initStorage() {
     try {
-      // Seed Admin
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      if (fs.existsSync(USERS_FILE)) {
+        const raw = fs.readFileSync(USERS_FILE, 'utf-8');
+        const parsed = JSON.parse(raw || '[]');
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.users = parsed.map((u) => new User(u));
+          // Ensure default admin exists
+          const hasAdmin = this.users.some((u) => u.role === 'admin');
+          if (!hasAdmin) {
+            await this._seedAdmin();
+          }
+          return;
+        }
+      }
+      // First-time setup: seed only the mess administrator
+      await this._seedAdmin();
+    } catch (err) {
+      console.warn('[UserService] Could not load persisted users:', err.message);
+      await this._seedAdmin();
+    }
+  }
+
+  async _seedAdmin() {
+    try {
       const adminHash = await User.hashPassword('admin123');
-      this.users.push(new User({
+      const adminUser = new User({
         id: 'USR-ADMIN-001',
         name: 'Mess Manager (Admin)',
         email: 'admin@srisailakshmimess.com',
         phone: '9876543210',
         passwordHash: adminHash,
         role: 'admin'
-      }));
-
-      // Seed Delivery Partners
-      const deliveryHash = await User.hashPassword('delivery123');
-      this.users.push(new User({
-        id: 'USR-DEL-001',
-        name: 'Murugan (Delivery)',
-        email: 'delivery@srisailakshmimess.com',
-        phone: '9444012345',
-        passwordHash: deliveryHash,
-        role: 'delivery',
-        vehicleNumber: 'TN59 AB 1234',
-        isAvailable: true,
-        totalDeliveries: 42
-      }));
-      this.users.push(new User({
-        id: 'USR-DEL-002',
-        name: 'Selvam (Delivery)',
-        email: 'selvam@srisailakshmimess.com',
-        phone: '9600098765',
-        passwordHash: deliveryHash,
-        role: 'delivery',
-        vehicleNumber: 'TN59 CD 5678',
-        isAvailable: false,
-        totalDeliveries: 18
-      }));
-
-      // Seed Demo Customer
-      const customerHash = await User.hashPassword('customer123');
-      this.users.push(new User({
-        id: 'USR-CUST-001',
-        name: 'Karthik Raja',
-        email: 'customer@srisailakshmimess.com',
-        phone: '9840123456',
-        passwordHash: customerHash,
-        role: 'customer'
-      }));
+      });
+      const exists = this.users.some((u) => u.email === adminUser.email);
+      if (!exists) {
+        this.users.unshift(adminUser);
+      }
+      this._persist();
     } catch (e) {
-      console.error('Failed to seed users:', e);
+      console.error('Failed to seed admin:', e);
+    }
+  }
+
+  _persist() {
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      fs.writeFileSync(USERS_FILE, JSON.stringify(this.users, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('[UserService] Failed to persist users to file:', err.message);
     }
   }
 
@@ -72,6 +82,7 @@ class UserService {
     const passwordHash = await User.hashPassword(password);
     const newUser = new User({ name, email, phone, passwordHash, role, vehicleNumber });
     this.users.push(newUser);
+    this._persist();
     return newUser;
   }
 
@@ -95,12 +106,16 @@ class UserService {
     const user = this.users.find((u) => u.id === userId);
     if (!user) return null;
     user.isAvailable = isAvailable;
+    this._persist();
     return user.toPublic();
   }
 
   async incrementDeliveries(userId) {
     const user = this.users.find((u) => u.id === userId);
-    if (user) user.totalDeliveries += 1;
+    if (user) {
+      user.totalDeliveries += 1;
+      this._persist();
+    }
   }
 }
 

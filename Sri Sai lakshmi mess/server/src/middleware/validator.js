@@ -53,8 +53,8 @@ exports.validateOrderInput = (req, res, next) => {
   }
 
   const parsedQty = parseInt(quantity, 10);
-  if (isNaN(parsedQty) || parsedQty < 1 || parsedQty > 500) {
-    errors.push('Quantity must be a valid number between 1 and 500.');
+  if (isNaN(parsedQty) || parsedQty < 1 || parsedQty > 5000) {
+    errors.push('Quantity must be a valid number between 1 and 5000.');
   }
 
   if (!preferredDate || typeof preferredDate !== 'string') {

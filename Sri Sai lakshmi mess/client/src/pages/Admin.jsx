@@ -47,7 +47,9 @@ export default function Admin() {
   const [partnerError, setPartnerError] = useState('');
   const [assigningId, setAssigningId] = useState(null);
 
-  // Quick Admin Login state
+  // Admin Login state
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
 
@@ -79,19 +81,29 @@ export default function Admin() {
   useEffect(() => {
     if (isAdmin) {
       loadAdminData();
+      // Auto-poll every 15 seconds so customer placed orders appear in real time
+      const timer = setInterval(() => {
+        loadAdminData();
+      }, 15000);
+      return () => clearInterval(timer);
     } else {
       setLoading(false);
     }
   }, [user]);
 
-  // Handle Quick Admin Login
-  const handleQuickAdminLogin = async () => {
+  // Handle Admin Login
+  const handleAdminLogin = async (e) => {
+    if (e) e.preventDefault();
+    if (!adminEmail.trim() || !adminPassword) {
+      setLoginError('Please enter your administrator email and password.');
+      return;
+    }
     try {
       setLoginLoading(true);
       setLoginError('');
-      await login('admin@srisailakshmimess.com', 'admin123');
+      await login(adminEmail.trim(), adminPassword);
     } catch (err) {
-      setLoginError(err.message || 'Quick login failed.');
+      setLoginError(err.message || 'Admin login failed. Please verify your credentials.');
     } finally {
       setLoginLoading(false);
     }
@@ -118,34 +130,53 @@ export default function Admin() {
 
   // Status Colors & Badges
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'Enquiry Received':
-        return { bg: '#fef3c7', text: '#92400e', icon: <Clock size={14} />, label: 'Enquiry Received' };
-      case 'Processing':
-        return { bg: '#e0f2fe', text: '#075985', icon: <RefreshCw size={14} className="spin-slow" />, label: 'Processing' };
-      case 'Confirmed':
-        return { bg: '#dcfce7', text: '#166534', icon: <CheckCircle2 size={14} />, label: 'Confirmed' };
-      case 'Ready':
-        return { bg: '#fae8ff', text: '#86198f', icon: <Package size={14} />, label: 'Ready' };
-      case 'Completed':
-        return { bg: '#d1fae5', text: '#065f46', icon: <CheckCircle2 size={14} />, label: 'Completed' };
-      case 'Cancelled':
-        return { bg: '#fee2e2', text: '#991b1b', icon: <XCircle size={14} />, label: 'Cancelled' };
-      default:
-        return { bg: '#f3f4f6', text: '#374151', icon: <Clock size={14} />, label: status };
+    const s = (status || '').toLowerCase();
+    if (s.includes('delivered') || s.includes('completed')) {
+      return { bg: '#d1fae5', text: '#065f46', icon: <CheckCircle2 size={14} />, label: 'Delivered' };
     }
+    if (s.includes('out for delivery')) {
+      return { bg: '#e0e7ff', text: '#3730a3', icon: <Package size={14} />, label: 'Out for Delivery' };
+    }
+    if (s.includes('ready')) {
+      return { bg: '#fae8ff', text: '#86198f', icon: <Package size={14} />, label: 'Food Ready' };
+    }
+    if (s.includes('confirmed')) {
+      return { bg: '#dcfce7', text: '#166534', icon: <CheckCircle2 size={14} />, label: 'Confirmed' };
+    }
+    if (s.includes('processing')) {
+      return { bg: '#e0f2fe', text: '#075985', icon: <RefreshCw size={14} className="spin-slow" />, label: 'Processing' };
+    }
+    if (s.includes('cancel')) {
+      return { bg: '#fee2e2', text: '#991b1b', icon: <XCircle size={14} />, label: 'Cancelled' };
+    }
+    return { bg: '#fef3c7', text: '#92400e', icon: <Clock size={14} />, label: status || 'Order Received' };
   };
 
   // Filtered Orders
   const filteredOrders = orders.filter((order) => {
-    const matchesStatus = selectedStatus === 'All' || order.status === selectedStatus;
+    const s = (order.status || '').toLowerCase();
+    const sel = selectedStatus.toLowerCase();
+    let matchesStatus = false;
+    if (selectedStatus === 'All') {
+      matchesStatus = true;
+    } else if (sel === 'delivered') {
+      matchesStatus = s === 'delivered' || s === 'completed';
+    } else if (sel === 'order received' || sel === 'enquiry received') {
+      matchesStatus = s === 'order received' || s === 'enquiry received' || s === 'pending';
+    } else {
+      matchesStatus = s === sel;
+    }
+
     const query = searchQuery.toLowerCase().trim();
     const matchesSearch =
       !query ||
-      order.id.toLowerCase().includes(query) ||
-      order.customerName.toLowerCase().includes(query) ||
-      order.phone.includes(query) ||
-      order.foodItem.toLowerCase().includes(query);
+      (order.id || '').toLowerCase().includes(query) ||
+      (order.customerName || '').toLowerCase().includes(query) ||
+      (order.phone || '').includes(query) ||
+      (order.foodItem || '').toLowerCase().includes(query) ||
+      (order.orderType || '').toLowerCase().includes(query) ||
+      (Array.isArray(order.items) && order.items.some((it) => (it.name || '').toLowerCase().includes(query)));
+
     return matchesStatus && matchesSearch;
   });
 
@@ -153,7 +184,7 @@ export default function Admin() {
   if (!user || user.role !== 'admin') {
     return (
       <div style={{ minHeight: '80vh', backgroundColor: '#0f172a', color: '#f8fafc', padding: '4rem 1rem' }}>
-        <div style={{ maxWidth: '520px', margin: '0 auto', textAlign: 'center' }}>
+        <div style={{ maxWidth: '440px', margin: '0 auto', textAlign: 'center' }}>
           <div
             style={{
               width: '70px',
@@ -171,30 +202,70 @@ export default function Admin() {
           </div>
 
           <h2 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '0.75rem', color: '#ffffff' }}>
-            Admin Portal Access
+            Admin Portal Sign In
           </h2>
-          <p style={{ color: '#94a3b8', fontSize: '1rem', lineHeight: '1.6', marginBottom: '2rem' }}>
-            Log in with an administrator account to view order stats, manage bulk enquiries, and update delivery statuses.
+          <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '2rem' }}>
+            Enter your restaurant administrator credentials to manage orders, customer enquiries, and delivery statuses.
           </p>
 
-          {/* Quick Demo Login Banner */}
-          <div
+          {/* Real Admin Login Form */}
+          <form
+            onSubmit={handleAdminLogin}
             style={{
-              background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9))',
+              background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95))',
               border: '1px solid rgba(249, 115, 22, 0.3)',
               borderRadius: '16px',
-              padding: '1.5rem',
+              padding: '1.75rem',
               marginBottom: '2rem',
               textAlign: 'left'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fb923c', fontWeight: '700', marginBottom: '0.5rem' }}>
-              <Key size={18} />
-              <span>Demo Admin Credentials</span>
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.4rem' }}>
+                Admin Email Address
+              </label>
+              <input
+                type="email"
+                required
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                placeholder="admin@srisailakshmimess.com"
+                style={{
+                  width: '100%',
+                  backgroundColor: '#0f172a',
+                  border: '1px solid #475569',
+                  borderRadius: '8px',
+                  padding: '0.75rem 1rem',
+                  color: '#ffffff',
+                  fontSize: '0.95rem',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
             </div>
-            <div style={{ fontSize: '0.9rem', color: '#cbd5e1', marginBottom: '1.25rem', fontFamily: 'monospace' }}>
-              <div><strong>Email:</strong> admin@srisailakshmimess.com</div>
-              <div><strong>Password:</strong> admin123</div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.4rem' }}>
+                Password
+              </label>
+              <input
+                type="password"
+                required
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                placeholder="••••••••"
+                style={{
+                  width: '100%',
+                  backgroundColor: '#0f172a',
+                  border: '1px solid #475569',
+                  borderRadius: '8px',
+                  padding: '0.75rem 1rem',
+                  color: '#ffffff',
+                  fontSize: '0.95rem',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
             </div>
 
             {loginError && (
@@ -204,20 +275,20 @@ export default function Admin() {
             )}
 
             <button
-              onClick={handleQuickAdminLogin}
+              type="submit"
               disabled={loginLoading}
               className="btn btn-primary"
               style={{ width: '100%', justifyContent: 'center', gap: '0.5rem', fontWeight: '700', padding: '0.85rem' }}
             >
               {loginLoading ? <RefreshCw size={18} className="spin-slow" /> : <ShieldCheck size={18} />}
-              <span>{loginLoading ? 'Authenticating...' : '⚡ Quick Admin Login (1-Click)'}</span>
+              <span>{loginLoading ? 'Authenticating...' : 'Sign In as Admin'}</span>
             </button>
-          </div>
+          </form>
 
           <p style={{ fontSize: '0.875rem', color: '#64748b' }}>
-            Already logged in as a regular customer?{' '}
+            Not an administrator?{' '}
             <button onClick={() => logout()} style={{ background: 'none', border: 'none', color: '#ea580c', cursor: 'pointer', textDecoration: 'underline' }}>
-              Sign Out
+              Return to Website
             </button>
           </p>
         </div>
@@ -402,7 +473,7 @@ export default function Admin() {
             }}
           >
             <Layers size={18} />
-            <span>Bulk Enquiries ({orders.length})</span>
+            <span>Orders & Enquiries ({orders.length})</span>
           </button>
 
           <button
@@ -470,7 +541,7 @@ export default function Admin() {
                 <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
                 <input
                   type="text"
-                  placeholder="Search by customer name, phone, or Order ID..."
+                  placeholder="Search by customer name, phone, dish item, or Order ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{
@@ -489,7 +560,7 @@ export default function Admin() {
               {/* Status Filter Pills */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center' }}>
                 <Filter size={16} style={{ color: '#64748b', marginRight: '0.2rem' }} />
-                {['All', 'Enquiry Received', 'Processing', 'Confirmed', 'Ready', 'Completed', 'Cancelled'].map((st) => (
+                {['All', 'Order Received', 'Processing', 'Confirmed', 'Ready', 'Out for Delivery', 'Delivered', 'Cancelled'].map((st) => (
                   <button
                     key={st}
                     onClick={() => setSelectedStatus(st)}
@@ -613,11 +684,11 @@ export default function Admin() {
                           </div>
                         </div>
 
-                        {/* Status Updater Dropdown */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {/* Status Updater Dropdown & Quick Actions */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: '600' }}>Change Status:</span>
                           <select
-                            value={order.status}
+                            value={order.status === 'Completed' ? 'Delivered' : (order.status === 'Enquiry Received' || order.status === 'Pending' ? 'Order Received' : order.status)}
                             disabled={isUpdating}
                             onChange={(e) => handleStatusChange(order.id, e.target.value)}
                             style={{
@@ -632,13 +703,65 @@ export default function Admin() {
                               outline: 'none'
                             }}
                           >
-                            <option value="Enquiry Received">Enquiry Received</option>
+                            <option value="Order Received">Order Received</option>
                             <option value="Processing">Processing</option>
                             <option value="Confirmed">Confirmed</option>
-                            <option value="Ready">Ready</option>
-                            <option value="Completed">Completed</option>
+                            <option value="Ready">Food Ready</option>
+                            <option value="Out for Delivery">Out for Delivery</option>
+                            <option value="Delivered">Delivered</option>
                             <option value="Cancelled">Cancelled</option>
                           </select>
+
+                          {/* Quick 1-Click Status Buttons */}
+                          {order.status !== 'Processing' && order.status !== 'Delivered' && order.status !== 'Completed' && (
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(order.id, 'Processing')}
+                              disabled={isUpdating}
+                              title="Set status to Processing"
+                              style={{
+                                backgroundColor: '#0284c7',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '0.45rem 0.75rem',
+                                fontSize: '0.78rem',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem'
+                              }}
+                            >
+                              <RefreshCw size={12} />
+                              <span>Processing</span>
+                            </button>
+                          )}
+
+                          {order.status !== 'Delivered' && order.status !== 'Completed' && (
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(order.id, 'Delivered')}
+                              disabled={isUpdating}
+                              title="Set status to Delivered"
+                              style={{
+                                backgroundColor: '#059669',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '0.45rem 0.75rem',
+                                fontSize: '0.78rem',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem'
+                              }}
+                            >
+                              <CheckCircle2 size={12} />
+                              <span>Delivered</span>
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -654,38 +777,69 @@ export default function Admin() {
                         {/* Customer Info */}
                         <div>
                           <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
-                            Customer Details
+                            Customer Details {order.orderType ? `• ${order.orderType.toUpperCase()}` : ''}
                           </div>
                           <div style={{ fontSize: '1.05rem', fontWeight: '700', color: '#ffffff' }}>{order.customerName}</div>
                           <div style={{ fontSize: '0.9rem', color: '#cbd5e1', marginTop: '0.2rem' }}>📞 {order.phone}</div>
                           {order.email && <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.1rem' }}>✉️ {order.email}</div>}
+                          {order.deliveryAddress && (
+                            <div style={{ fontSize: '0.85rem', color: '#f59e0b', marginTop: '0.35rem', lineHeight: '1.4' }}>
+                              📍 <strong>Address:</strong> {order.deliveryAddress}
+                            </div>
+                          )}
                         </div>
 
                         {/* Menu & Quantity */}
                         <div>
                           <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
-                            Requirement / Package
+                            Requirement / Food Item
                           </div>
-                          <div style={{ fontSize: '1rem', fontWeight: '700', color: '#ffffff' }}>{order.foodItem}</div>
+                          <div style={{ fontSize: '1rem', fontWeight: '700', color: '#ffffff' }}>{order.foodItem || 'Menu Order'}</div>
                           <div style={{ fontSize: '0.9rem', color: '#ea580c', fontWeight: '700', marginTop: '0.25rem' }}>
-                            Portions: {order.quantity} Plates
+                            Quantity: {order.quantity || 1} {order.orderType === 'delivery' ? 'Items' : 'Plates'}
                           </div>
+                          {order.amount > 0 && (
+                            <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#22c55e', marginTop: '0.35rem' }}>
+                              Bill Amount: ₹{order.amount}
+                            </div>
+                          )}
                         </div>
 
                         {/* Date & Time */}
                         <div>
                           <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
-                            Event Date & Time
+                            Schedule & Type
                           </div>
                           <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <Calendar size={15} style={{ color: '#ea580c' }} />
-                            <span>{order.preferredDate || 'Not specified'}</span>
+                            <span>{order.preferredDate || 'Immediate'}</span>
                           </div>
                           <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <Clock size={14} style={{ color: '#94a3b8' }} />
-                            <span>{order.preferredTime || 'Not specified'}</span>
+                            <span>{order.preferredTime || 'Immediate'}</span>
+                          </div>
+                          <div style={{ marginTop: '0.4rem' }}>
+                            <span style={{ fontSize: '0.75rem', backgroundColor: '#334155', color: '#f1f5f9', padding: '0.2rem 0.5rem', borderRadius: '4px', textTransform: 'capitalize' }}>
+                              {order.orderType || 'delivery'}
+                            </span>
                           </div>
                         </div>
+
+                        {/* Order Items Breakdown (if cart order) */}
+                        {Array.isArray(order.items) && order.items.length > 0 && (
+                          <div style={{ gridColumn: '1 / -1', backgroundColor: '#0f172a', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #334155' }}>
+                            <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
+                              Itemized Bill Breakdown:
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              {order.items.map((it, idx) => (
+                                <span key={idx} style={{ backgroundColor: '#1e293b', border: '1px solid #475569', padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem', color: '#f8fafc' }}>
+                                  <strong>{it.name}</strong> × {it.quantity} {it.price ? `(₹${it.price * it.quantity})` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Special Instructions Callout */}

@@ -92,6 +92,7 @@ export const fetchMenuItemById = async (id) => {
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
 export const submitOrderEnquiry = async (orderPayload) => {
+  let serverOrder = null;
   try {
     const json = await safeFetchJson(`${API_BASE_URL}/orders`, {
       method: 'POST',
@@ -101,27 +102,31 @@ export const submitOrderEnquiry = async (orderPayload) => {
       },
       body: JSON.stringify(orderPayload)
     });
-    return json;
+    serverOrder = json.data;
   } catch (error) {
-    console.warn('[Orders] Backend offline, saving order locally:', error.message);
-    const orderId = 'ORD-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    const localOrder = {
-      id: orderId,
-      ...orderPayload,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    const orders = getLocalOrders();
-    orders.unshift(localOrder);
-    saveLocalOrders(orders);
-
-    return {
-      success: true,
-      message: 'Order placed successfully (Saved locally)!',
-      data: localOrder
-    };
+    console.warn('[Orders] Backend offline or unreachable, saving order locally:', error.message);
   }
+
+  const finalOrder = serverOrder || {
+    id: 'ORD-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+    ...orderPayload,
+    status: 'Order Received',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  // Keep local storage synchronized
+  const orders = getLocalOrders().filter((o) => !o.id.startsWith('ORD-DEMO-'));
+  if (!orders.some((o) => o.id === finalOrder.id)) {
+    orders.unshift(finalOrder);
+    saveLocalOrders(orders);
+  }
+
+  return {
+    success: true,
+    message: 'Order placed successfully!',
+    data: finalOrder
+  };
 };
 
 export const trackOrderByPhone = async (phone) => {
@@ -154,7 +159,7 @@ export const getMyOrders = async () => {
     });
     return json.data;
   } catch (error) {
-    return getLocalOrders();
+    return getLocalOrders().filter((o) => !o.id.startsWith('ORD-DEMO-'));
   }
 };
 
@@ -165,57 +170,55 @@ export const getAllOrdersAdmin = async () => {
     const json = await safeFetchJson(`${API_BASE_URL}/orders`, {
       headers: { ...getAuthHeader() }
     });
-    return json.data;
-  } catch (error) {
-    let orders = getLocalOrders();
-    if (orders.length === 0) {
-      orders = [
-        {
-          id: 'ORD-DEMO-01',
-          name: 'Karthik Raja',
-          phone: '9840123456',
-          items: [{ dishId: 'dish-01', name: 'South Indian Special Meals', quantity: 2, price: 100 }],
-          totalAmount: 200,
-          status: 'pending',
-          deliveryAddress: 'Balaji Complex, Sivakasi',
-          createdAt: new Date(Date.now() - 3600000).toISOString()
-        },
-        {
-          id: 'ORD-DEMO-02',
-          name: 'Priya Sundaram',
-          phone: '9443312345',
-          items: [{ dishId: 'dish-03', name: 'Ghee Podi Idli (2 Pcs)', quantity: 2, price: 30 }, { dishId: 'dish-12', name: 'Kumbakonam Degree Coffee', quantity: 2, price: 20 }],
-          totalAmount: 100,
-          status: 'confirmed',
-          deliveryAddress: 'Rathanavillas bus stop, Sivakasi',
-          createdAt: new Date(Date.now() - 7200000).toISOString()
+    if (Array.isArray(json.data)) {
+      // Merge with any local orders (filtering out demo orders)
+      const local = getLocalOrders().filter((o) => !o.id.startsWith('ORD-DEMO-'));
+      const serverIds = new Set(json.data.map((o) => o.id));
+      const merged = [...json.data];
+      for (const loc of local) {
+        if (!serverIds.has(loc.id)) {
+          merged.push(loc);
         }
-      ];
-      saveLocalOrders(orders);
+      }
+      return merged;
     }
-    return orders;
+    return json.data || [];
+  } catch (error) {
+    console.info('[Admin API] Server unreachable, loading from local store:', error.message);
+    return getLocalOrders().filter((o) => !o.id.startsWith('ORD-DEMO-'));
   }
 };
 
 export const updateOrderStatusAdmin = async (orderId, status) => {
+  let serverUpdated = null;
   try {
     const json = await safeFetchJson(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: JSON.stringify({ status })
     });
-    return json.data;
+    serverUpdated = json.data;
   } catch (error) {
-    const orders = getLocalOrders();
-    const idx = orders.findIndex((o) => o.id === orderId);
-    if (idx !== -1) {
-      orders[idx].status = status;
-      orders[idx].updatedAt = new Date().toISOString();
-      saveLocalOrders(orders);
-      return orders[idx];
-    }
-    throw new Error('Order not found to update status.');
+    console.warn('[Admin API] Server status update notice:', error.message);
   }
+
+  // Update local cache
+  const orders = getLocalOrders();
+  const idx = orders.findIndex((o) => o.id === orderId);
+  if (idx !== -1) {
+    orders[idx].status = status;
+    orders[idx].updatedAt = new Date().toISOString();
+    saveLocalOrders(orders);
+    return serverUpdated || orders[idx];
+  }
+
+  if (serverUpdated) {
+    orders.unshift(serverUpdated);
+    saveLocalOrders(orders);
+    return serverUpdated;
+  }
+
+  throw new Error('Order not found to update status.');
 };
 
 export const assignDeliveryPartnerAdmin = async (orderId, { partnerId, partnerName, partnerPhone }) => {

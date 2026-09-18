@@ -152,6 +152,19 @@ exports.getMyOrders = async (req, res, next) => {
   }
 };
 
+const STATUS_MAP = {
+  'order received': 'Order Received',
+  'enquiry received': 'Enquiry Received',
+  'pending': 'Order Received',
+  'processing': 'Processing',
+  'confirmed': 'Confirmed',
+  'ready': 'Ready',
+  'out for delivery': 'Out for Delivery',
+  'delivered': 'Delivered',
+  'completed': 'Delivered',
+  'cancelled': 'Cancelled'
+};
+
 /**
  * PATCH /api/orders/:id/status — Admin: Update order status
  */
@@ -160,22 +173,31 @@ exports.updateOrderStatus = async (req, res, next) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const validStatuses = ['Enquiry Received', 'Processing', 'Confirmed', 'Ready', 'Out for Delivery', 'Completed', 'Cancelled'];
-    if (!status || !validStatuses.includes(status)) {
+    if (!status || typeof status !== 'string') {
       return res.status(400).json({
         success: false,
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+        message: 'Status string is required.'
       });
     }
 
-    const updated = await orderService.updateOrderStatus(id, status);
+    const normalizedKey = status.trim().toLowerCase();
+    const targetStatus = STATUS_MAP[normalizedKey];
+
+    if (!targetStatus) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status "${status}". Allowed options: Order Received, Processing, Confirmed, Ready, Out for Delivery, Delivered, Cancelled.`
+      });
+    }
+
+    const updated = await orderService.updateOrderStatus(id, targetStatus);
     if (!updated) {
       return res.status(404).json({ success: false, message: 'Order not found.' });
     }
 
     return res.status(200).json({
       success: true,
-      message: `Order status updated to "${status}".`,
+      message: `Order status updated to "${targetStatus}".`,
       data: updated
     });
   } catch (error) {

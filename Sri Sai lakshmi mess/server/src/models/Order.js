@@ -9,14 +9,14 @@ class Order {
     customerName,
     phone,
     email = '',
-    foodItem,
-    quantity,
+    foodItem = '',
+    quantity = 1,
     preferredDate,
     preferredTime,
     specialInstructions = '',
-    orderType = 'dine-in',      // 'dine-in' | 'delivery' | 'parcel'
+    orderType = 'dine-in',      // 'dine-in' | 'delivery' | 'takeaway' | 'parcel'
     deliveryAddress = '',        // Required when orderType === 'delivery'
-    status = 'Enquiry Received', // 'Enquiry Received' | 'Processing' | 'Confirmed' | 'Ready' | 'Out for Delivery' | 'Completed' | 'Cancelled'
+    status = 'Order Received',   // 'Order Received' | 'Enquiry Received' | 'Processing' | 'Confirmed' | 'Ready' | 'Out for Delivery' | 'Delivered' | 'Completed' | 'Cancelled'
     userId = null,
     // Payment
     paymentStatus = 'Pay on Delivery', // 'Pay on Delivery' | 'Paid' | 'Pending' | 'Failed'
@@ -33,10 +33,10 @@ class Order {
     updatedAt = new Date().toISOString()
   }) {
     this.id = id || `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    this.customerName = customerName.trim();
-    this.phone = phone.trim();
+    this.customerName = (customerName || '').trim();
+    this.phone = (phone || '').trim();
     this.email = email ? email.trim() : '';
-    this.foodItem = foodItem.trim();
+    this.foodItem = (foodItem || '').trim();
     this.quantity = Number(quantity);
     this.preferredDate = preferredDate;
     this.preferredTime = preferredTime;

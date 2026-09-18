@@ -103,27 +103,7 @@ export default function Login() {
     }
   };
 
-  // Quick 1-click login handler for testing
-  const handleQuickLogin = async (email, password, targetTab) => {
-    setFormData({ email, password });
-    setError('');
-    setInfoMessage('');
-    setIsLoading(true);
-    try {
-      const user = await login({ email, password });
-      if (targetTab === 'delivery' || user?.role === 'delivery') {
-        navigate('/delivery', { replace: true });
-      } else if (user?.role === 'admin') {
-        navigate('/admin', { replace: true });
-      } else {
-        navigate(from || '/dashboard', { replace: true });
-      }
-    } catch (err) {
-      setError(err.message || 'Quick login failed.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
 
   return (
     <div className="auth-page">
@@ -311,34 +291,6 @@ export default function Login() {
           ) : (
             /* Delivery Tab: Quick Demo Riders / Fleet note */
             <>
-              {/* Quick Delivery Demo Logins */}
-              <div className="auth-demo-box auth-demo-box-delivery">
-                <div className="auth-demo-title">
-                  <span>⚡ 1-Click Demo Delivery Partner Login:</span>
-                  <span style={{ fontSize: '0.72rem', color: '#3b82f6' }}>Instant Access</span>
-                </div>
-                <div className="auth-demo-grid">
-                  <button
-                    type="button"
-                    className="auth-demo-btn auth-demo-btn-delivery"
-                    onClick={() => handleQuickLogin('delivery@srisailakshmimess.com', 'delivery123', 'delivery')}
-                    disabled={isLoading}
-                  >
-                    <span>🛵 Murugan (Rider 1 • TN59 AB 1234)</span>
-                    <ArrowRight size={13} color="#2563eb" />
-                  </button>
-                  <button
-                    type="button"
-                    className="auth-demo-btn auth-demo-btn-delivery"
-                    onClick={() => handleQuickLogin('selvam@srisailakshmimess.com', 'delivery123', 'delivery')}
-                    disabled={isLoading}
-                  >
-                    <span>🛵 Selvam (Rider 2 • TN59 CD 5678)</span>
-                    <ArrowRight size={13} color="#2563eb" />
-                  </button>
-                </div>
-              </div>
-
               {/* Delivery Partner registration note */}
               <div className="auth-partner-notice">
                 <p>

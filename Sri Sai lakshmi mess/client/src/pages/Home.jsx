@@ -30,7 +30,7 @@ export default function Home() {
 
   return (
     <div className="animate-fade-in">
-      
+
       {/* 1. HERO SECTION */}
       <section style={{
         position: 'relative',
@@ -46,7 +46,7 @@ export default function Home() {
       }}>
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
           <div style={{ maxWidth: '780px' }}>
-            
+
             {/* Top Badge */}
             <div style={{
               display: 'inline-flex',
@@ -245,7 +245,7 @@ export default function Home() {
             gap: '4rem',
             alignItems: 'center'
           }}>
-            
+
             {/* Left: Image Card */}
             <div style={{ position: 'relative' }}>
               <div style={{
@@ -289,7 +289,7 @@ export default function Home() {
               <h2 className="section-title" style={{ textAlign: 'left', marginBottom: '1.25rem' }}>
                 Homely South Indian Dining with Authentic Heart
               </h2>
-              
+
               <p style={{ color: 'var(--color-text-muted)', fontSize: '1.05rem', lineHeight: '1.7', marginBottom: '1.25rem' }}>
                 At <strong>Sri Sai Lakshmi Mess</strong>, we cherish the authentic culinary heritage of Tamil Nadu. Every sambar, rasam, and poriyal is prepared fresh each morning following age-old family recipes.
               </p>

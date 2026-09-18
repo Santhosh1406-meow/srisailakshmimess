@@ -1,73 +1,57 @@
+const fs = require('fs');
+const path = require('path');
 const Order = require('../models/Order');
 
+const DATA_DIR = path.join(__dirname, '../data');
+const DATA_FILE = path.join(DATA_DIR, 'orders.json');
+
 /**
- * Order & Enquiry Service Layer
- * Abstracted so that swapping with MongoDB / PostgreSQL repository requires changing only this service.
+ * Order & Enquiry Service Layer with Local File Persistence
+ * Ensures customer placed orders are never lost across server restarts.
  */
 class OrderService {
   constructor() {
     this.orders = [];
-    this._seedOrders();
+    this._initStorage();
   }
 
-  _seedOrders() {
-    this.orders = [
-      new Order({
-        id: 'ORD-8821',
-        customerName: 'Ramesh Kumar',
-        phone: '9840123456',
-        email: 'ramesh.k@gmail.com',
-        foodItem: 'Special South Indian Meals (Banquet Catering)',
-        quantity: 150,
-        preferredDate: '2026-09-15',
-        preferredTime: '12:30 PM',
-        specialInstructions: 'Banana leaf serving requested for all 150 guests.',
-        orderType: 'delivery',
-        deliveryAddress: '12, Gandhi Nagar, Sivakasi',
-        status: 'Completed',
-        paymentStatus: 'Paid',
-        amount: 2250000,
-        deliveryPartnerName: 'Murugan (Delivery)',
-        deliveryPartnerId: 'USR-DEL-001',
-        deliveredAt: new Date(Date.now() - 86400000).toISOString()
-      }),
-      new Order({
-        id: 'ORD-8822',
-        customerName: 'Priya Sundaram',
-        phone: '9790987654',
-        email: 'priya.events@techcorp.com',
-        foodItem: 'Mini Tiffin Combo (Breakfast Catering)',
-        quantity: 75,
-        preferredDate: '2026-09-18',
-        preferredTime: '08:00 AM',
-        specialInstructions: 'Hot stainless steel thermal dispensers required.',
-        orderType: 'delivery',
-        deliveryAddress: '45, Anna Nagar, Sivakasi',
-        status: 'Ready',
-        paymentStatus: 'Pay on Delivery',
-        amount: 750000
-      }),
-      new Order({
-        id: 'ORD-8823',
-        customerName: 'Karthik Subramanian',
-        phone: '9940112233',
-        email: 'karthik.s@gmail.com',
-        foodItem: 'Chettinad Meal Buffet Box',
-        quantity: 50,
-        preferredDate: '2026-09-20',
-        preferredTime: '01:00 PM',
-        specialInstructions: '20 vegetarian, 30 non-vegetarian meal packs separated clearly.',
-        orderType: 'parcel',
-        status: 'Processing',
-        paymentStatus: 'Pay on Delivery',
-        amount: 900000
-      })
-    ];
+  _initStorage() {
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      if (fs.existsSync(DATA_FILE)) {
+        const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+        const parsed = JSON.parse(raw || '[]');
+        if (Array.isArray(parsed)) {
+          this.orders = parsed.map((item) => new Order(item));
+        }
+      } else {
+        // Initialize empty orders storage (no dummy demo orders)
+        this.orders = [];
+        this._persist();
+      }
+    } catch (err) {
+      console.warn('[OrderService] Could not load persisted orders, initializing empty in-memory store:', err.message);
+      this.orders = [];
+    }
+  }
+
+  _persist() {
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      fs.writeFileSync(DATA_FILE, JSON.stringify(this.orders, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('[OrderService] Failed to persist orders to file:', err.message);
+    }
   }
 
   async createOrder(orderData) {
     const newOrder = new Order(orderData);
     this.orders.unshift(newOrder);
+    this._persist();
     return newOrder;
   }
 
@@ -81,7 +65,7 @@ class OrderService {
 
   async getOrdersByPhone(phone) {
     const cleaned = phone.replace(/\D/g, '').slice(-10);
-    return this.orders.filter((o) => o.phone.replace(/\D/g, '').slice(-10) === cleaned);
+    return this.orders.filter((o) => (o.phone || '').replace(/\D/g, '').slice(-10) === cleaned);
   }
 
   async getOrdersByUserId(userId) {
@@ -111,6 +95,7 @@ class OrderService {
     order.deliveryPartnerName = partnerName;
     order.deliveryPartnerPhone = partnerPhone;
     order.updatedAt = new Date().toISOString();
+    this._persist();
     return order;
   }
 
@@ -124,6 +109,7 @@ class OrderService {
     order.deliveryPartnerPhone = partnerPhone;
     order.status = 'Out for Delivery';
     order.updatedAt = new Date().toISOString();
+    this._persist();
     return order;
   }
 
@@ -132,9 +118,10 @@ class OrderService {
     const order = this.orders.find((o) => o.id === orderId);
     if (!order) return null;
     if (order.deliveryPartnerId !== partnerId) return null; // not your order
-    order.status = 'Completed';
+    order.status = 'Delivered';
     order.deliveredAt = new Date().toISOString();
     order.updatedAt = new Date().toISOString();
+    this._persist();
     return order;
   }
 
@@ -142,7 +129,11 @@ class OrderService {
     const order = this.orders.find((o) => o.id === id);
     if (!order) return null;
     order.status = status;
+    if (status === 'Delivered' || status === 'Completed') {
+      order.deliveredAt = new Date().toISOString();
+    }
     order.updatedAt = new Date().toISOString();
+    this._persist();
     return order;
   }
 
@@ -154,14 +145,15 @@ class OrderService {
     if (paymentStatus) order.paymentStatus = paymentStatus;
     if (amount) order.amount = amount;
     order.updatedAt = new Date().toISOString();
+    this._persist();
     return order;
   }
 
   async getAdminStats() {
     const totalOrders = this.orders.length;
-    const pendingEnquiries = this.orders.filter((o) => o.status === 'Enquiry Received').length;
+    const pendingEnquiries = this.orders.filter((o) => ['Enquiry Received', 'Order Received', 'Pending'].includes(o.status)).length;
     const processingOrders = this.orders.filter((o) => o.status === 'Processing').length;
-    const confirmedOrders = this.orders.filter((o) => ['Confirmed', 'Completed'].includes(o.status)).length;
+    const confirmedOrders = this.orders.filter((o) => ['Confirmed', 'Completed', 'Delivered'].includes(o.status)).length;
     const outForDelivery = this.orders.filter((o) => o.status === 'Out for Delivery').length;
     const totalPortions = this.orders.reduce((sum, o) => sum + (Number(o.quantity) || 0), 0);
     const deliveryOrders = this.orders.filter((o) => o.orderType === 'delivery').length;
