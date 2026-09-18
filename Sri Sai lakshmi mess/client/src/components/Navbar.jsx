@@ -77,43 +77,45 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Top Notification / Info Bar */}
-      <div className="navbar-top-bar">
-        <div className="navbar-top-bar-inner">
-          <div className="top-bar-left">
-            <span className="top-bar-item">
-              <Clock size={13} className="top-bar-icon" />
-              <span>{RESTAURANT_CONFIG.openingHours}</span>
-            </span>
-            <span className="top-bar-divider">•</span>
-            <span className="top-bar-item">
-              <MapPin size={13} className="top-bar-icon" />
-              <span>Sivakasi, Tamil Nadu</span>
-            </span>
-          </div>
+      {/* Fixed Site Header Wrapper */}
+      <div className={`site-header-wrapper ${isScrolled ? 'scrolled' : ''}`}>
+        {/* Top Notification / Info Bar */}
+        <div className="navbar-top-bar">
+          <div className="navbar-top-bar-inner">
+            <div className="top-bar-left">
+              <span className="top-bar-item">
+                <Clock size={13} className="top-bar-icon" />
+                <span>{RESTAURANT_CONFIG.openingHours}</span>
+              </span>
+              <span className="top-bar-divider">•</span>
+              <span className="top-bar-item">
+                <MapPin size={13} className="top-bar-icon" />
+                <span>Sivakasi, Tamil Nadu</span>
+              </span>
+            </div>
 
-          <div className="top-bar-center">
-            <span className="top-bar-badge">
-              <Sparkles size={12} /> Authentic South Indian Homely Taste
-            </span>
-          </div>
+            <div className="top-bar-center">
+              <span className="top-bar-badge">
+                <Sparkles size={12} /> Authentic South Indian Homely Taste
+              </span>
+            </div>
 
-          <div className="top-bar-right">
-            <a
-              href={`tel:${RESTAURANT_CONFIG.phone.replace(/[^0-9+]/g, '')}`}
-              className="top-bar-phone"
-              title="Call restaurant"
-            >
-              <Phone size={12} />
-              <span>{RESTAURANT_CONFIG.phone}</span>
-            </a>
+            <div className="top-bar-right">
+              <a
+                href={`tel:${RESTAURANT_CONFIG.phone.replace(/[^0-9+]/g, '')}`}
+                className="top-bar-phone"
+                title="Call restaurant"
+              >
+                <Phone size={12} />
+                <span>{RESTAURANT_CONFIG.phone}</span>
+              </a>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Sticky Header */}
-      <header className={`navbar-header ${isScrolled ? 'scrolled' : ''}`}>
-        <div className="navbar-container">
+        {/* Main Sticky/Fixed Header */}
+        <header className={`navbar-header ${isScrolled ? 'scrolled' : ''}`}>
+          <div className="navbar-container">
 
           {/* Brand Logo & Name */}
           <Link to="/" className="navbar-brand">
@@ -239,6 +241,10 @@ export default function Navbar() {
 
         </div>
       </header>
+    </div>
+
+    {/* Spacer to keep document content flow underneath fixed navbar */}
+    <div className="site-header-spacer" />
 
       {/* Mobile Nav Drawer */}
       {mobileMenuOpen && (

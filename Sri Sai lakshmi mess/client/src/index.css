@@ -1027,6 +1027,24 @@ img {
    Top Announcement Bar & Modern Header / Navbar
    ========================================================================== */
 
+/* Fixed Header Wrapper ensuring navbar is 100% stable while scrolling on all devices */
+.site-header-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+/* Spacer maintains exact document flow so page content is never hidden under fixed navbar */
+.site-header-spacer {
+  height: 108px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
 .navbar-top-bar {
   background: linear-gradient(90deg, #7c2d12 0%, #9a3412 50%, #c2410c 100%);
   color: #ffedd5;
@@ -1035,6 +1053,18 @@ img {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden; /* Prevent top bar from causing horizontal scroll */
   width: 100%;
+  max-height: 40px;
+  opacity: 1;
+  transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.3s ease;
+}
+
+/* When scrolling on desktop, smoothly tuck the top bar away so navigation remains slim and stable */
+.site-header-wrapper.scrolled .navbar-top-bar {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom-color: transparent;
 }
 
 .navbar-top-bar-inner {
@@ -1109,16 +1139,16 @@ img {
 
 /* Header & Navbar Container */
 .navbar-header {
-  position: sticky;
-  top: 0;
-  z-index: 90;
+  position: relative;
+  width: 100%;
   background-color: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(229, 231, 235, 0.8);
-  transition: all 0.25s ease;
+  transition: background-color 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
+.site-header-wrapper.scrolled .navbar-header,
 .navbar-header.scrolled {
   background-color: rgba(255, 255, 255, 0.98);
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08);
@@ -1305,7 +1335,7 @@ img {
 .mobile-drawer-overlay {
   position: fixed;
   inset: 0;
-  z-index: 99;
+  z-index: 1100;
   background-color: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(4px);
   display: flex;
@@ -1437,11 +1467,19 @@ img {
 
   /* Hide the entire top info bar on small screens — it overflows on mobile */
   .navbar-top-bar {
-    display: none;
+    display: none !important;
+  }
+
+  .site-header-spacer {
+    height: 68px;
   }
 
   .navbar-brand-tagline {
     display: none;
+  }
+
+  .navbar-brand-title {
+    font-size: 1.15rem;
   }
 
   .navbar-phone-action {
@@ -1459,6 +1497,51 @@ img {
   .navbar-container {
     padding: 0 1rem;
     height: 68px;
+  }
+}
+
+@media (max-width: 480px) {
+  .site-header-spacer {
+    height: 62px;
+  }
+
+  .navbar-container {
+    padding: 0 0.65rem;
+    height: 62px;
+  }
+
+  .navbar-brand {
+    gap: 0.55rem;
+  }
+
+  .navbar-brand-title {
+    font-size: 1.02rem;
+  }
+
+  .navbar-logo-wrapper {
+    width: 36px;
+    height: 36px;
+  }
+
+  .navbar-actions {
+    gap: 0.35rem;
+  }
+
+  .navbar-login-btn {
+    padding: 0.35rem 0.55rem;
+    font-size: 0.78rem;
+    gap: 0.25rem;
+  }
+
+  .navbar-cart-btn {
+    width: 35px;
+    height: 35px;
+  }
+
+  .mobile-menu-toggle {
+    width: 35px;
+    height: 35px;
+    padding: 0.3rem;
   }
 }
 
