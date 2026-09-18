@@ -60,7 +60,8 @@ class OrderService {
   }
 
   async getOrderById(id) {
-    return this.orders.find((o) => o.id === id) || null;
+    const cleanId = (id || '').trim().toUpperCase();
+    return this.orders.find((o) => (o.id || '').toUpperCase() === cleanId) || null;
   }
 
   async getOrdersByPhone(phone) {
@@ -126,7 +127,8 @@ class OrderService {
   }
 
   async updateOrderStatus(id, status) {
-    const order = this.orders.find((o) => o.id === id);
+    const cleanId = (id || '').trim().toUpperCase();
+    const order = this.orders.find((o) => (o.id || '').toUpperCase() === cleanId);
     if (!order) return null;
     order.status = status;
     if (status === 'Delivered' || status === 'Completed') {

@@ -110,18 +110,30 @@ export default function Admin() {
   };
 
   // Handle Status Update
-  const handleStatusChange = async (orderId, newStatus) => {
+  const handleStatusChange = async (orderId, newStatus, fallbackOrder = null) => {
+    const targetOrder = fallbackOrder || orders.find((o) => o.id === orderId);
+    const prevStatus = targetOrder?.status;
+
+    // Optimistic update immediately for zero-lag UI response
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, updatedAt: new Date().toISOString() } : o))
+    );
+
     try {
       setUpdatingId(orderId);
-      await updateOrderStatusAdmin(orderId, newStatus);
-      // Optimistic update
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, updatedAt: new Date().toISOString() } : o))
-      );
-      // Refresh stats
-      const newStats = await getAdminStats();
-      setStats(newStats);
+      await updateOrderStatusAdmin(orderId, newStatus, targetOrder);
+      // Refresh stats quietly in background
+      try {
+        const newStats = await getAdminStats();
+        if (newStats) setStats(newStats);
+      } catch (_) {}
     } catch (err) {
+      // Revert if failed
+      if (prevStatus) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, status: prevStatus } : o))
+        );
+      }
       alert(`Failed to update status: ${err.message}`);
     } finally {
       setUpdatingId(null);
@@ -690,7 +702,7 @@ export default function Admin() {
                           <select
                             value={order.status === 'Completed' ? 'Delivered' : (order.status === 'Enquiry Received' || order.status === 'Pending' ? 'Order Received' : order.status)}
                             disabled={isUpdating}
-                            onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                            onChange={(e) => handleStatusChange(order.id, e.target.value, order)}
                             style={{
                               backgroundColor: '#0f172a',
                               color: '#ffffff',
@@ -716,7 +728,7 @@ export default function Admin() {
                           {order.status !== 'Processing' && order.status !== 'Delivered' && order.status !== 'Completed' && (
                             <button
                               type="button"
-                              onClick={() => handleStatusChange(order.id, 'Processing')}
+                              onClick={() => handleStatusChange(order.id, 'Processing', order)}
                               disabled={isUpdating}
                               title="Set status to Processing"
                               style={{
@@ -741,7 +753,7 @@ export default function Admin() {
                           {order.status !== 'Delivered' && order.status !== 'Completed' && (
                             <button
                               type="button"
-                              onClick={() => handleStatusChange(order.id, 'Delivered')}
+                              onClick={() => handleStatusChange(order.id, 'Delivered', order)}
                               disabled={isUpdating}
                               title="Set status to Delivered"
                               style={{

@@ -157,9 +157,12 @@ const STATUS_MAP = {
   'enquiry received': 'Enquiry Received',
   'pending': 'Order Received',
   'processing': 'Processing',
+  'in progress': 'Processing',
   'confirmed': 'Confirmed',
   'ready': 'Ready',
+  'food ready': 'Ready',
   'out for delivery': 'Out for Delivery',
+  'out_for_delivery': 'Out for Delivery',
   'delivered': 'Delivered',
   'completed': 'Delivered',
   'cancelled': 'Cancelled'

@@ -180,17 +180,22 @@ export const getAllOrdersAdmin = async () => {
           merged.push(loc);
         }
       }
+      saveLocalOrders(merged);
       return merged;
     }
-    return json.data || [];
+    const result = json.data || [];
+    if (result.length > 0) saveLocalOrders(result);
+    return result;
   } catch (error) {
     console.info('[Admin API] Server unreachable, loading from local store:', error.message);
     return getLocalOrders().filter((o) => !o.id.startsWith('ORD-DEMO-'));
   }
 };
 
-export const updateOrderStatusAdmin = async (orderId, status) => {
+export const updateOrderStatusAdmin = async (orderId, status, fallbackOrder = null) => {
   let serverUpdated = null;
+  let serverError = null;
+
   try {
     const json = await safeFetchJson(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/status`, {
       method: 'PATCH',
@@ -199,12 +204,20 @@ export const updateOrderStatusAdmin = async (orderId, status) => {
     });
     serverUpdated = json.data;
   } catch (error) {
+    serverError = error;
     console.warn('[Admin API] Server status update notice:', error.message);
   }
 
   // Update local cache
   const orders = getLocalOrders();
-  const idx = orders.findIndex((o) => o.id === orderId);
+  let idx = orders.findIndex((o) => (o.id || '').toUpperCase() === (orderId || '').toUpperCase());
+
+  // If order was missing from cache but we have it from component state
+  if (idx === -1 && fallbackOrder) {
+    orders.unshift({ ...fallbackOrder });
+    idx = 0;
+  }
+
   if (idx !== -1) {
     orders[idx].status = status;
     orders[idx].updatedAt = new Date().toISOString();
@@ -218,29 +231,51 @@ export const updateOrderStatusAdmin = async (orderId, status) => {
     return serverUpdated;
   }
 
-  throw new Error('Order not found to update status.');
+  // If server had a specific authentication or validation error, propagate it
+  if (serverError) {
+    if (serverError.status === 401 || serverError.status === 403) {
+      throw new Error('Admin session expired. Please sign out and sign in again.');
+    }
+    throw new Error(serverError.message || 'Server error occurred while updating status.');
+  }
+
+  throw new Error(`Order ${orderId} not found in system.`);
 };
 
-export const assignDeliveryPartnerAdmin = async (orderId, { partnerId, partnerName, partnerPhone }) => {
+export const assignDeliveryPartnerAdmin = async (orderId, { partnerId, partnerName, partnerPhone }, fallbackOrder = null) => {
+  let serverUpdated = null;
+  let serverError = null;
   try {
     const json = await safeFetchJson(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/assign`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: JSON.stringify({ partnerId, partnerName, partnerPhone })
     });
-    return json.data;
+    serverUpdated = json.data;
   } catch (error) {
-    const orders = getLocalOrders();
-    const idx = orders.findIndex((o) => o.id === orderId);
-    if (idx !== -1) {
-      orders[idx].assignedPartner = { id: partnerId, name: partnerName, phone: partnerPhone };
-      orders[idx].status = 'out_for_delivery';
-      orders[idx].updatedAt = new Date().toISOString();
-      saveLocalOrders(orders);
-      return orders[idx];
-    }
-    throw new Error('Order not found to assign delivery partner.');
+    serverError = error;
   }
+
+  const orders = getLocalOrders();
+  let idx = orders.findIndex((o) => (o.id || '').toUpperCase() === (orderId || '').toUpperCase());
+
+  if (idx === -1 && fallbackOrder) {
+    orders.unshift({ ...fallbackOrder });
+    idx = 0;
+  }
+
+  if (idx !== -1) {
+    orders[idx].assignedPartner = { id: partnerId, name: partnerName, phone: partnerPhone };
+    orders[idx].status = 'Out for Delivery';
+    orders[idx].updatedAt = new Date().toISOString();
+    saveLocalOrders(orders);
+    return serverUpdated || orders[idx];
+  }
+
+  if (serverError) {
+    throw new Error(serverError.message);
+  }
+  throw new Error('Order not found to assign delivery partner.');
 };
 
 export const getAdminStats = async () => {
