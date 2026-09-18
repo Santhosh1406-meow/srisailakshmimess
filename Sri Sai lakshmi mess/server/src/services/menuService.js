@@ -1,4 +1,9 @@
+const fs = require('fs');
+const path = require('path');
 const MenuItem = require('../models/MenuItem');
+
+const DATA_DIR = path.join(__dirname, '../data');
+const MENU_FILE = path.join(DATA_DIR, 'menu.json');
 
 
 
@@ -222,7 +227,41 @@ const initialMenuItems = [
 
 class MenuService {
   constructor() {
-    this.menu = [...initialMenuItems];
+    this.menu = [];
+    this._initStorage();
+  }
+
+  _initStorage() {
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      if (fs.existsSync(MENU_FILE)) {
+        const raw = fs.readFileSync(MENU_FILE, 'utf-8');
+        const parsed = JSON.parse(raw || '[]');
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.menu = parsed.map((item) => new MenuItem(item));
+          return;
+        }
+      }
+      // First run: seed with hardcoded items and persist
+      this.menu = [...initialMenuItems];
+      this._persist();
+    } catch (err) {
+      console.warn('[MenuService] Could not load persisted menu, using defaults:', err.message);
+      this.menu = [...initialMenuItems];
+    }
+  }
+
+  _persist() {
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      fs.writeFileSync(MENU_FILE, JSON.stringify(this.menu, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('[MenuService] Failed to persist menu:', err.message);
+    }
   }
 
   async getAllMenuItems(filter = {}) {
@@ -259,6 +298,37 @@ class MenuService {
   async getCategories() {
     const categories = ['All', ...new Set(this.menu.map((m) => m.category))];
     return categories;
+  }
+
+  /** Admin: Add a new menu item */
+  async addMenuItem(data) {
+    // Generate a unique ID based on timestamp
+    const newItem = new MenuItem({
+      ...data,
+      id: data.id || `dish-${Date.now()}`
+    });
+    this.menu.push(newItem);
+    this._persist();
+    return newItem;
+  }
+
+  /** Admin: Update an existing menu item */
+  async updateMenuItem(id, updates) {
+    const idx = this.menu.findIndex((m) => m.id === id);
+    if (idx === -1) return null;
+    const existing = this.menu[idx];
+    this.menu[idx] = new MenuItem({ ...existing, ...updates, id: existing.id });
+    this._persist();
+    return this.menu[idx];
+  }
+
+  /** Admin: Delete a menu item */
+  async deleteMenuItem(id) {
+    const idx = this.menu.findIndex((m) => m.id === id);
+    if (idx === -1) return false;
+    this.menu.splice(idx, 1);
+    this._persist();
+    return true;
   }
 }
 

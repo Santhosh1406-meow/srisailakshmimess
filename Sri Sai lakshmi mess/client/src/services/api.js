@@ -488,3 +488,127 @@ export const checkHealth = async () => {
     };
   }
 };
+
+// ─── Menu Admin CRUD ──────────────────────────────────────────────────────────
+
+export const createMenuItemAdmin = async (itemData) => {
+  const json = await safeFetchJson(`${API_BASE_URL}/menu`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify(itemData)
+  });
+  return json.data;
+};
+
+export const updateMenuItemAdmin = async (id, itemData) => {
+  const json = await safeFetchJson(`${API_BASE_URL}/menu/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify(itemData)
+  });
+  return json.data;
+};
+
+export const deleteMenuItemAdmin = async (id) => {
+  return await safeFetchJson(`${API_BASE_URL}/menu/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeader() }
+  });
+};
+
+// ─── Offers ───────────────────────────────────────────────────────────────────
+
+export const fetchActiveOffers = async () => {
+  try {
+    const json = await safeFetchJson(`${API_BASE_URL}/offers`);
+    return json.data || [];
+  } catch (error) {
+    // Return default seed offers as fallback
+    return [
+      {
+        id: 'OFFER-WELCOME-001',
+        title: 'Welcome Discount',
+        description: 'Get 10% off on your first order!',
+        code: 'WELCOME10',
+        discountType: 'percent',
+        discountValue: 10,
+        minOrderAmount: 100,
+        isActive: true
+      }
+    ];
+  }
+};
+
+export const fetchAllOffersAdmin = async () => {
+  const json = await safeFetchJson(`${API_BASE_URL}/offers/all`, {
+    headers: { ...getAuthHeader() }
+  });
+  return json.data || [];
+};
+
+export const createOfferAdmin = async (offerData) => {
+  const json = await safeFetchJson(`${API_BASE_URL}/offers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify(offerData)
+  });
+  return json.data;
+};
+
+export const updateOfferAdmin = async (id, offerData) => {
+  const json = await safeFetchJson(`${API_BASE_URL}/offers/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify(offerData)
+  });
+  return json.data;
+};
+
+export const deleteOfferAdmin = async (id) => {
+  return await safeFetchJson(`${API_BASE_URL}/offers/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeader() }
+  });
+};
+
+export const validateOfferCode = async (code, orderAmount = 0) => {
+  try {
+    const json = await safeFetchJson(`${API_BASE_URL}/offers/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, orderAmount })
+    });
+    return json;
+  } catch (error) {
+    return { valid: false, message: error.message || 'Invalid offer code.' };
+  }
+};
+
+// ─── Delivery Partner Admin Management ───────────────────────────────────────
+
+export const updateDeliveryPartner = async (id, data) => {
+  const json = await safeFetchJson(`${API_BASE_URL}/delivery/partners/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify(data)
+  });
+  return json.data;
+};
+
+export const deleteDeliveryPartner = async (id) => {
+  return await safeFetchJson(`${API_BASE_URL}/delivery/partners/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeader() }
+  });
+};
+
+export const getAllCustomers = async () => {
+  try {
+    const json = await safeFetchJson(`${API_BASE_URL}/delivery/customers`, {
+      headers: { ...getAuthHeader() }
+    });
+    return json.data || [];
+  } catch (error) {
+    return [];
+  }
+};

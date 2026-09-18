@@ -112,3 +112,48 @@ exports.getAllPartners = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * PUT /api/delivery/partners/:id — Admin: Edit a delivery partner's details
+ */
+exports.updatePartner = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, phone, vehicleNumber, isAvailable } = req.body;
+    const updated = await userService.updateDeliveryPartner(id, { name, phone, vehicleNumber, isAvailable });
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Delivery partner not found.' });
+    }
+    return res.status(200).json({ success: true, message: 'Delivery partner updated successfully.', data: updated });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * DELETE /api/delivery/partners/:id — Admin: Remove a delivery partner
+ */
+exports.deletePartner = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const deleted = await userService.deleteDeliveryPartner(id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Delivery partner not found.' });
+    }
+    return res.status(200).json({ success: true, message: 'Delivery partner removed successfully.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/delivery/customers — Admin: list all registered customers
+ */
+exports.getAllCustomers = async (req, res, next) => {
+  try {
+    const customers = await userService.getAllCustomers();
+    return res.status(200).json({ success: true, count: customers.length, data: customers });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Utensils, Sparkles, CheckCircle2, PhoneCall, ChevronRight, Award } from 'lucide-react';
+import { ArrowRight, Utensils, Sparkles, CheckCircle2, PhoneCall, ChevronRight, Award, Tag, Gift, Clock } from 'lucide-react';
 import DishCard from '../components/DishCard';
 import { DishCardSkeleton } from '../components/SkeletonLoader';
-import { fetchMenu } from '../services/api';
+import { fetchMenu, fetchActiveOffers } from '../services/api';
 import { RESTAURANT_CONFIG, HIGHLIGHTS_DATA, ABOUT_STATS } from '../data/restaurantData';
 
 export default function Home() {
   const [popularDishes, setPopularDishes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeOffers, setActiveOffers] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -24,7 +25,14 @@ export default function Home() {
         if (isMounted) setLoading(false);
       }
     }
+    async function loadOffers() {
+      try {
+        const offers = await fetchActiveOffers();
+        if (isMounted) setActiveOffers(offers || []);
+      } catch (_) {}
+    }
     loadPopular();
+    loadOffers();
     return () => { isMounted = false; };
   }, []);
 
@@ -235,6 +243,89 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* 3b. OFFERS & DEALS SECTION */}
+      {activeOffers.length > 0 && (
+        <section className="section-padding" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1235 50%, #0f172a 100%)' }}>
+          <div className="container">
+            <div className="section-header">
+              <span className="section-badge" style={{ background: 'rgba(167,139,250,0.2)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }}>🎁 Exclusive Deals</span>
+              <h2 className="section-title" style={{ color: '#ffffff' }}>Current Offers & Discounts</h2>
+              <p className="section-subtitle" style={{ color: '#94a3b8' }}>Use these exclusive coupon codes when placing your order to save big!</p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+              {activeOffers.map((offer, idx) => (
+                <div
+                  key={offer.id}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(30,18,53,0.95), rgba(15,23,42,0.95))',
+                    border: '1px solid rgba(167,139,250,0.3)',
+                    borderRadius: '18px',
+                    padding: '1.75rem',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(124,58,237,0.2)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  {/* Decorative circle */}
+                  <div style={{ position: 'absolute', top: '-30px', right: '-30px', width: '100px', height: '100px', borderRadius: '50%', background: 'rgba(124,58,237,0.1)' }} />
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(167,139,250,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Gift size={24} style={{ color: '#a78bfa' }} />
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '2rem', fontWeight: '900', color: offer.discountType === 'percent' ? '#34d399' : '#fb923c', lineHeight: 1 }}>
+                        {offer.discountType === 'percent' ? `${offer.discountValue}%` : `₹${offer.discountValue}`}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>OFF</div>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#ffffff', marginBottom: '0.4rem' }}>{offer.title}</div>
+                  {offer.description && <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.5', margin: '0 0 1rem 0' }}>{offer.description}</p>}
+
+                  {offer.minOrderAmount > 0 && (
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <CheckCircle2 size={13} style={{ color: '#22c55e' }} />
+                      Min. order ₹{offer.minOrderAmount}
+                    </div>
+                  )}
+
+                  {offer.validTo && (
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Clock size={13} style={{ color: '#f59e0b' }} />
+                      Valid until {new Date(offer.validTo).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                    </div>
+                  )}
+
+                  {offer.code && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      backgroundColor: '#0f172a', border: '1px dashed rgba(167,139,250,0.5)',
+                      borderRadius: '10px', padding: '0.65rem 1rem', marginTop: '0.5rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Tag size={14} style={{ color: '#a78bfa' }} />
+                        <code style={{ color: '#a78bfa', fontWeight: '900', fontSize: '1rem', letterSpacing: '0.1em' }}>{offer.code}</code>
+                      </div>
+                      <button
+                        onClick={() => { navigator.clipboard?.writeText(offer.code); }}
+                        style={{ background: 'rgba(167,139,250,0.2)', border: 'none', color: '#a78bfa', padding: '0.25rem 0.65rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* 4. ABOUT SECTION PREVIEW */}
       <section className="section-padding" style={{ backgroundColor: '#ffffff' }}>

@@ -117,6 +117,29 @@ class UserService {
       this._persist();
     }
   }
+
+  async updateDeliveryPartner(id, { name, phone, vehicleNumber, isAvailable }) {
+    const user = this.users.find((u) => u.id === id && u.role === 'delivery');
+    if (!user) return null;
+    if (name !== undefined) user.name = name.trim();
+    if (phone !== undefined) user.phone = phone.trim();
+    if (vehicleNumber !== undefined) user.vehicleNumber = vehicleNumber.trim();
+    if (isAvailable !== undefined) user.isAvailable = Boolean(isAvailable);
+    this._persist();
+    return user.toPublic();
+  }
+
+  async deleteDeliveryPartner(id) {
+    const idx = this.users.findIndex((u) => u.id === id && u.role === 'delivery');
+    if (idx === -1) return false;
+    this.users.splice(idx, 1);
+    this._persist();
+    return true;
+  }
+
+  async getAllCustomers() {
+    return this.users.filter((u) => u.role === 'customer').map((u) => u.toPublic());
+  }
 }
 
 module.exports = new UserService();

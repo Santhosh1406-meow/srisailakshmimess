@@ -23,4 +23,13 @@ router.patch('/availability', protect, deliveryOnly, deliveryController.toggleAv
 // GET /api/delivery/partners — Admin: see all delivery partners
 router.get('/partners', protect, adminOnly, deliveryController.getAllPartners);
 
+// PUT /api/delivery/partners/:id — Admin: edit a delivery partner
+router.put('/partners/:id', protect, adminOnly, deliveryController.updatePartner);
+
+// DELETE /api/delivery/partners/:id — Admin: remove a delivery partner
+router.delete('/partners/:id', protect, adminOnly, deliveryController.deletePartner);
+
+// GET /api/delivery/customers — Admin: list all registered customers
+router.get('/customers', protect, adminOnly, deliveryController.getAllCustomers);
+
 module.exports = router;

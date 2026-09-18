@@ -1,0 +1,32 @@
+[
+  {
+    "id": "OFFER-WELCOME-001",
+    "title": "Welcome Discount",
+    "description": "Get 10% off on your first order! Use code WELCOME10 at checkout.",
+    "code": "WELCOME10",
+    "discountType": "percent",
+    "discountValue": 10,
+    "minOrderAmount": 100,
+    "validFrom": null,
+    "validTo": null,
+    "isActive": true,
+    "imageUrl": "",
+    "createdAt": "2026-09-18T16:45:28.141Z",
+    "updatedAt": "2026-09-18T16:45:28.142Z"
+  },
+  {
+    "id": "OFFER-MEAL-002",
+    "title": "Lunch Combo Deal",
+    "description": "Flat ₹20 off on all meal combos above ₹150. Limited time offer!",
+    "code": "LUNCH20",
+    "discountType": "flat",
+    "discountValue": 20,
+    "minOrderAmount": 150,
+    "validFrom": null,
+    "validTo": null,
+    "isActive": true,
+    "imageUrl": "",
+    "createdAt": "2026-09-18T16:45:28.142Z",
+    "updatedAt": "2026-09-18T16:45:28.142Z"
+  }
+]
