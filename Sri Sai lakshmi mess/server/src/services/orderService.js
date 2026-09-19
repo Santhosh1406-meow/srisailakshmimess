@@ -1,13 +1,49 @@
 const fs = require('fs');
 const path = require('path');
 const Order = require('../models/Order');
+const { query, isDbConnected } = require('../config/db');
 
 const DATA_DIR = path.join(__dirname, '../data');
 const DATA_FILE = path.join(DATA_DIR, 'orders.json');
 
+function rowToOrder(row) {
+  if (!row) return null;
+  let items = [];
+  try {
+    items = typeof row.items === 'string' ? JSON.parse(row.items) : (row.items || []);
+  } catch (e) {
+    items = [];
+  }
+  return new Order({
+    id: row.id,
+    customerName: row.customer_name,
+    phone: row.phone,
+    email: row.email,
+    foodItem: row.food_item,
+    quantity: row.quantity,
+    preferredDate: row.preferred_date,
+    preferredTime: row.preferred_time,
+    specialInstructions: row.special_instructions,
+    orderType: row.order_type,
+    deliveryAddress: row.delivery_address,
+    status: row.status,
+    userId: row.user_id,
+    paymentStatus: row.payment_status,
+    paymentId: row.payment_id,
+    razorpayOrderId: row.razorpay_order_id,
+    amount: Number(row.amount) || 0,
+    items: items,
+    deliveryPartnerId: row.delivery_partner_id,
+    deliveryPartnerName: row.delivery_partner_name,
+    deliveryPartnerPhone: row.delivery_partner_phone,
+    deliveredAt: row.delivered_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  });
+}
+
 /**
- * Order & Enquiry Service Layer with Local File Persistence
- * Ensures customer placed orders are never lost across server restarts.
+ * Order & Enquiry Service Layer with Neon PostgreSQL & Local File Persistence
  */
 class OrderService {
   constructor() {
@@ -15,7 +51,7 @@ class OrderService {
     this._initStorage();
   }
 
-  _initStorage() {
+  async _initStorage() {
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -27,7 +63,6 @@ class OrderService {
           this.orders = parsed.map((item) => new Order(item));
         }
       } else {
-        // Initialize empty orders storage (no dummy demo orders)
         this.orders = [];
         this._persist();
       }
@@ -50,31 +85,130 @@ class OrderService {
 
   async createOrder(orderData) {
     const newOrder = new Order(orderData);
+
+    if (isDbConnected()) {
+      try {
+        await query(`
+          INSERT INTO orders (
+            id, customer_name, phone, email, food_item, quantity,
+            preferred_date, preferred_time, special_instructions,
+            order_type, delivery_address, status, user_id,
+            payment_status, payment_id, razorpay_order_id, amount,
+            items, delivery_partner_id, delivery_partner_name, delivery_partner_phone,
+            delivered_at, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+          ON CONFLICT (id) DO NOTHING;
+        `, [
+          newOrder.id,
+          newOrder.customerName,
+          newOrder.phone,
+          newOrder.email,
+          newOrder.foodItem,
+          newOrder.quantity,
+          newOrder.preferredDate,
+          newOrder.preferredTime,
+          newOrder.specialInstructions,
+          newOrder.orderType,
+          newOrder.deliveryAddress,
+          newOrder.status,
+          newOrder.userId,
+          newOrder.paymentStatus,
+          newOrder.paymentId,
+          newOrder.razorpayOrderId,
+          newOrder.amount,
+          JSON.stringify(newOrder.items || []),
+          newOrder.deliveryPartnerId,
+          newOrder.deliveryPartnerName,
+          newOrder.deliveryPartnerPhone,
+          newOrder.deliveredAt,
+          newOrder.createdAt,
+          newOrder.updatedAt
+        ]);
+      } catch (e) {
+        console.error('[OrderService] Error inserting order into Neon DB:', e.message);
+      }
+    }
+
     this.orders.unshift(newOrder);
     this._persist();
     return newOrder;
   }
 
   async getAllOrders() {
+    if (isDbConnected()) {
+      try {
+        const res = await query('SELECT * FROM orders ORDER BY created_at DESC');
+        if (res && res.rows) {
+          return res.rows.map(rowToOrder);
+        }
+      } catch (e) {
+        console.error('[OrderService] Error fetching orders from Neon DB:', e.message);
+      }
+    }
     return [...this.orders];
   }
 
   async getOrderById(id) {
     const cleanId = (id || '').trim().toUpperCase();
+    if (isDbConnected()) {
+      try {
+        const res = await query('SELECT * FROM orders WHERE UPPER(id) = $1 LIMIT 1', [cleanId]);
+        if (res && res.rows.length > 0) {
+          return rowToOrder(res.rows[0]);
+        }
+      } catch (e) {
+        console.error('[OrderService] Error finding order by id in Neon DB:', e.message);
+      }
+    }
     return this.orders.find((o) => (o.id || '').toUpperCase() === cleanId) || null;
   }
 
   async getOrdersByPhone(phone) {
-    const cleaned = phone.replace(/\D/g, '').slice(-10);
+    const cleaned = (phone || '').replace(/\D/g, '').slice(-10);
+    if (isDbConnected()) {
+      try {
+        const res = await query('SELECT * FROM orders ORDER BY created_at DESC');
+        if (res && res.rows) {
+          return res.rows.map(rowToOrder).filter((o) => (o.phone || '').replace(/\D/g, '').slice(-10) === cleaned);
+        }
+      } catch (e) {
+        console.error('[OrderService] Error fetching orders by phone from Neon DB:', e.message);
+      }
+    }
     return this.orders.filter((o) => (o.phone || '').replace(/\D/g, '').slice(-10) === cleaned);
   }
 
   async getOrdersByUserId(userId) {
+    if (isDbConnected()) {
+      try {
+        const res = await query('SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
+        if (res && res.rows) {
+          return res.rows.map(rowToOrder);
+        }
+      } catch (e) {
+        console.error('[OrderService] Error fetching orders by userId from Neon DB:', e.message);
+      }
+    }
     return this.orders.filter((o) => o.userId === userId);
   }
 
   /** Delivery partner: get orders assigned to this partner OR available (Ready, no partner) */
   async getOrdersForDeliveryPartner(partnerId) {
+    if (isDbConnected()) {
+      try {
+        const res = await query(`
+          SELECT * FROM orders 
+          WHERE delivery_partner_id = $1 
+             OR (status = 'Ready' AND delivery_partner_id IS NULL AND order_type = 'delivery')
+          ORDER BY created_at DESC
+        `, [partnerId]);
+        if (res && res.rows) {
+          return res.rows.map(rowToOrder);
+        }
+      } catch (e) {
+        console.error('[OrderService] Error fetching delivery partner orders from Neon DB:', e.message);
+      }
+    }
     return this.orders.filter(
       (o) => o.deliveryPartnerId === partnerId || 
              (o.status === 'Ready' && !o.deliveryPartnerId && o.orderType === 'delivery')
@@ -83,6 +217,20 @@ class OrderService {
 
   /** Delivery partner: get only available (unassigned) delivery orders */
   async getAvailableDeliveryOrders() {
+    if (isDbConnected()) {
+      try {
+        const res = await query(`
+          SELECT * FROM orders 
+          WHERE status = 'Ready' AND delivery_partner_id IS NULL AND order_type = 'delivery'
+          ORDER BY created_at DESC
+        `);
+        if (res && res.rows) {
+          return res.rows.map(rowToOrder);
+        }
+      } catch (e) {
+        console.error('[OrderService] Error fetching available delivery orders from Neon DB:', e.message);
+      }
+    }
     return this.orders.filter(
       (o) => o.status === 'Ready' && !o.deliveryPartnerId && o.orderType === 'delivery'
     );
@@ -90,7 +238,19 @@ class OrderService {
 
   /** Admin: assign a delivery partner to an order */
   async assignDeliveryPartner(orderId, partnerId, partnerName, partnerPhone) {
-    const order = this.orders.find((o) => o.id === orderId);
+    if (isDbConnected()) {
+      try {
+        await query(`
+          UPDATE orders 
+          SET delivery_partner_id = $1, delivery_partner_name = $2, delivery_partner_phone = $3, updated_at = CURRENT_TIMESTAMP
+          WHERE UPPER(id) = UPPER($4)
+        `, [partnerId, partnerName, partnerPhone, orderId]);
+      } catch (e) {
+        console.error('[OrderService] Error assigning partner in Neon DB:', e.message);
+      }
+    }
+
+    const order = this.orders.find((o) => (o.id || '').toUpperCase() === (orderId || '').toUpperCase());
     if (!order) return null;
     order.deliveryPartnerId = partnerId;
     order.deliveryPartnerName = partnerName;
@@ -102,7 +262,19 @@ class OrderService {
 
   /** Delivery partner: accept/claim an order */
   async acceptOrder(orderId, partnerId, partnerName, partnerPhone) {
-    const order = this.orders.find((o) => o.id === orderId);
+    if (isDbConnected()) {
+      try {
+        await query(`
+          UPDATE orders 
+          SET delivery_partner_id = $1, delivery_partner_name = $2, delivery_partner_phone = $3, status = 'Out for Delivery', updated_at = CURRENT_TIMESTAMP
+          WHERE UPPER(id) = UPPER($4) AND (delivery_partner_id IS NULL OR delivery_partner_id = $1)
+        `, [partnerId, partnerName, partnerPhone, orderId]);
+      } catch (e) {
+        console.error('[OrderService] Error accepting order in Neon DB:', e.message);
+      }
+    }
+
+    const order = this.orders.find((o) => (o.id || '').toUpperCase() === (orderId || '').toUpperCase());
     if (!order) return null;
     if (order.deliveryPartnerId && order.deliveryPartnerId !== partnerId) return null; // already taken
     order.deliveryPartnerId = partnerId;
@@ -116,7 +288,19 @@ class OrderService {
 
   /** Delivery partner: mark an order as delivered */
   async markDelivered(orderId, partnerId) {
-    const order = this.orders.find((o) => o.id === orderId);
+    if (isDbConnected()) {
+      try {
+        await query(`
+          UPDATE orders 
+          SET status = 'Delivered', delivered_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+          WHERE UPPER(id) = UPPER($1) AND delivery_partner_id = $2
+        `, [orderId, partnerId]);
+      } catch (e) {
+        console.error('[OrderService] Error marking delivered in Neon DB:', e.message);
+      }
+    }
+
+    const order = this.orders.find((o) => (o.id || '').toUpperCase() === (orderId || '').toUpperCase());
     if (!order) return null;
     if (order.deliveryPartnerId !== partnerId) return null; // not your order
     order.status = 'Delivered';
@@ -128,11 +312,31 @@ class OrderService {
 
   async updateOrderStatus(id, status) {
     const cleanId = (id || '').trim().toUpperCase();
+    const deliveredAt = (status === 'Delivered' || status === 'Completed') ? new Date().toISOString() : null;
+
+    if (isDbConnected()) {
+      try {
+        if (deliveredAt) {
+          await query(`
+            UPDATE orders SET status = $1, delivered_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE UPPER(id) = UPPER($2)
+          `, [status, cleanId]);
+        } else {
+          await query(`
+            UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE UPPER(id) = UPPER($2)
+          `, [status, cleanId]);
+        }
+      } catch (e) {
+        console.error('[OrderService] Error updating status in Neon DB:', e.message);
+      }
+    }
+
     const order = this.orders.find((o) => (o.id || '').toUpperCase() === cleanId);
     if (!order) return null;
     order.status = status;
-    if (status === 'Delivered' || status === 'Completed') {
-      order.deliveredAt = new Date().toISOString();
+    if (deliveredAt) {
+      order.deliveredAt = deliveredAt;
     }
     order.updatedAt = new Date().toISOString();
     this._persist();
@@ -140,7 +344,25 @@ class OrderService {
   }
 
   async updatePaymentInfo(id, { paymentId, razorpayOrderId, paymentStatus, amount }) {
-    const order = this.orders.find((o) => o.id === id);
+    const cleanId = (id || '').trim().toUpperCase();
+
+    if (isDbConnected()) {
+      try {
+        await query(`
+          UPDATE orders SET 
+            payment_id = COALESCE($1, payment_id),
+            razorpay_order_id = COALESCE($2, razorpay_order_id),
+            payment_status = COALESCE($3, payment_status),
+            amount = COALESCE($4, amount),
+            updated_at = CURRENT_TIMESTAMP
+          WHERE UPPER(id) = UPPER($5)
+        `, [paymentId || null, razorpayOrderId || null, paymentStatus || null, amount || null, cleanId]);
+      } catch (e) {
+        console.error('[OrderService] Error updating payment in Neon DB:', e.message);
+      }
+    }
+
+    const order = this.orders.find((o) => (o.id || '').toUpperCase() === cleanId);
     if (!order) return null;
     if (paymentId) order.paymentId = paymentId;
     if (razorpayOrderId) order.razorpayOrderId = razorpayOrderId;
@@ -152,13 +374,14 @@ class OrderService {
   }
 
   async getAdminStats() {
-    const totalOrders = this.orders.length;
-    const pendingEnquiries = this.orders.filter((o) => ['Enquiry Received', 'Order Received', 'Pending'].includes(o.status)).length;
-    const processingOrders = this.orders.filter((o) => o.status === 'Processing').length;
-    const confirmedOrders = this.orders.filter((o) => ['Confirmed', 'Completed', 'Delivered'].includes(o.status)).length;
-    const outForDelivery = this.orders.filter((o) => o.status === 'Out for Delivery').length;
-    const totalPortions = this.orders.reduce((sum, o) => sum + (Number(o.quantity) || 0), 0);
-    const deliveryOrders = this.orders.filter((o) => o.orderType === 'delivery').length;
+    const allOrders = await this.getAllOrders();
+    const totalOrders = allOrders.length;
+    const pendingEnquiries = allOrders.filter((o) => ['Enquiry Received', 'Order Received', 'Pending'].includes(o.status)).length;
+    const processingOrders = allOrders.filter((o) => o.status === 'Processing').length;
+    const confirmedOrders = allOrders.filter((o) => ['Confirmed', 'Completed', 'Delivered'].includes(o.status)).length;
+    const outForDelivery = allOrders.filter((o) => o.status === 'Out for Delivery').length;
+    const totalPortions = allOrders.reduce((sum, o) => sum + (Number(o.quantity) || 0), 0);
+    const deliveryOrders = allOrders.filter((o) => o.orderType === 'delivery').length;
 
     return {
       totalOrders,
@@ -173,3 +396,4 @@ class OrderService {
 }
 
 module.exports = new OrderService();
+

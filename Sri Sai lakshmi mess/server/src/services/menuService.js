@@ -1,9 +1,28 @@
 const fs = require('fs');
 const path = require('path');
 const MenuItem = require('../models/MenuItem');
+const { query, isDbConnected } = require('../config/db');
 
 const DATA_DIR = path.join(__dirname, '../data');
 const MENU_FILE = path.join(DATA_DIR, 'menu.json');
+
+function rowToMenuItem(row) {
+  if (!row) return null;
+  return new MenuItem({
+    id: row.id,
+    name: row.name,
+    tamilName: row.tamil_name,
+    description: row.description,
+    category: row.category,
+    price: Number(row.price),
+    image: row.image,
+    isVegetarian: row.is_vegetarian,
+    isAvailable: row.is_available,
+    isPopular: row.is_popular,
+    rating: Number(row.rating),
+    portion: row.portion
+  });
+}
 
 
 
@@ -267,6 +286,17 @@ class MenuService {
   async getAllMenuItems(filter = {}) {
     let items = [...this.menu];
 
+    if (isDbConnected()) {
+      try {
+        const res = await query('SELECT * FROM menu_items ORDER BY id ASC');
+        if (res && res.rows && res.rows.length > 0) {
+          items = res.rows.map(rowToMenuItem);
+        }
+      } catch (err) {
+        console.error('[MenuService] Error querying menu_items in Neon DB:', err.message);
+      }
+    }
+
     if (filter.category && filter.category.toLowerCase() !== 'all') {
       items = items.filter(
         (item) => item.category.toLowerCase() === filter.category.toLowerCase()
@@ -291,22 +321,70 @@ class MenuService {
   }
 
   async getMenuItemById(id) {
+    if (isDbConnected()) {
+      try {
+        const res = await query('SELECT * FROM menu_items WHERE id = $1 LIMIT 1', [id]);
+        if (res && res.rows.length > 0) {
+          return rowToMenuItem(res.rows[0]);
+        }
+      } catch (err) {
+        console.error('[MenuService] Error querying menu_item by id:', err.message);
+      }
+    }
     const item = this.menu.find((m) => m.id === id);
     return item || null;
   }
 
   async getCategories() {
-    const categories = ['All', ...new Set(this.menu.map((m) => m.category))];
+    const all = await this.getAllMenuItems();
+    const categories = ['All', ...new Set(all.map((m) => m.category))];
     return categories;
   }
 
   /** Admin: Add a new menu item */
   async addMenuItem(data) {
-    // Generate a unique ID based on timestamp
     const newItem = new MenuItem({
       ...data,
       id: data.id || `dish-${Date.now()}`
     });
+
+    if (isDbConnected()) {
+      try {
+        await query(`
+          INSERT INTO menu_items (id, name, tamil_name, description, category, price, image, is_vegetarian, is_available, is_popular, rating, portion)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          ON CONFLICT (id) DO UPDATE SET
+            name = EXCLUDED.name,
+            tamil_name = EXCLUDED.tamil_name,
+            description = EXCLUDED.description,
+            category = EXCLUDED.category,
+            price = EXCLUDED.price,
+            image = EXCLUDED.image,
+            is_vegetarian = EXCLUDED.is_vegetarian,
+            is_available = EXCLUDED.is_available,
+            is_popular = EXCLUDED.is_popular,
+            rating = EXCLUDED.rating,
+            portion = EXCLUDED.portion,
+            updated_at = CURRENT_TIMESTAMP
+        `, [
+          newItem.id,
+          newItem.name,
+          newItem.tamilName,
+          newItem.description,
+          newItem.category,
+          newItem.price,
+          newItem.image,
+          newItem.isVegetarian,
+          newItem.isAvailable,
+          newItem.isPopular,
+          newItem.rating,
+          newItem.portion
+        ]);
+      } catch (err) {
+        console.error('[MenuService] Error inserting menu item into Neon DB:', err.message);
+      }
+    }
+
     this.menu.push(newItem);
     this._persist();
     return newItem;
@@ -314,16 +392,52 @@ class MenuService {
 
   /** Admin: Update an existing menu item */
   async updateMenuItem(id, updates) {
+    if (isDbConnected()) {
+      try {
+        const fields = [];
+        const vals = [];
+        let idx = 1;
+        if (updates.name !== undefined) { fields.push(`name = $${idx++}`); vals.push(updates.name); }
+        if (updates.tamilName !== undefined) { fields.push(`tamil_name = $${idx++}`); vals.push(updates.tamilName); }
+        if (updates.description !== undefined) { fields.push(`description = $${idx++}`); vals.push(updates.description); }
+        if (updates.category !== undefined) { fields.push(`category = $${idx++}`); vals.push(updates.category); }
+        if (updates.price !== undefined) { fields.push(`price = $${idx++}`); vals.push(Number(updates.price)); }
+        if (updates.image !== undefined) { fields.push(`image = $${idx++}`); vals.push(updates.image); }
+        if (updates.isVegetarian !== undefined) { fields.push(`is_vegetarian = $${idx++}`); vals.push(Boolean(updates.isVegetarian)); }
+        if (updates.isAvailable !== undefined) { fields.push(`is_available = $${idx++}`); vals.push(Boolean(updates.isAvailable)); }
+        if (updates.isPopular !== undefined) { fields.push(`is_popular = $${idx++}`); vals.push(Boolean(updates.isPopular)); }
+        if (updates.rating !== undefined) { fields.push(`rating = $${idx++}`); vals.push(Number(updates.rating)); }
+        if (updates.portion !== undefined) { fields.push(`portion = $${idx++}`); vals.push(updates.portion); }
+        if (fields.length > 0) {
+          fields.push(`updated_at = CURRENT_TIMESTAMP`);
+          vals.push(id);
+          await query(`UPDATE menu_items SET ${fields.join(', ')} WHERE id = $${idx}`, vals);
+        }
+      } catch (err) {
+        console.error('[MenuService] Error updating menu item in Neon DB:', err.message);
+      }
+    }
+
     const idx = this.menu.findIndex((m) => m.id === id);
-    if (idx === -1) return null;
-    const existing = this.menu[idx];
-    this.menu[idx] = new MenuItem({ ...existing, ...updates, id: existing.id });
-    this._persist();
-    return this.menu[idx];
+    if (idx !== -1) {
+      const existing = this.menu[idx];
+      this.menu[idx] = new MenuItem({ ...existing, ...updates, id: existing.id });
+      this._persist();
+      return this.menu[idx];
+    }
+    return null;
   }
 
   /** Admin: Delete a menu item */
   async deleteMenuItem(id) {
+    if (isDbConnected()) {
+      try {
+        await query('DELETE FROM menu_items WHERE id = $1', [id]);
+      } catch (err) {
+        console.error('[MenuService] Error deleting menu item from Neon DB:', err.message);
+      }
+    }
+
     const idx = this.menu.findIndex((m) => m.id === id);
     if (idx === -1) return false;
     this.menu.splice(idx, 1);
