@@ -12,8 +12,9 @@ import {
   ShieldCheck, Package, Clock, CheckCircle2, AlertCircle, Search, Phone,
   MessageCircle, UtensilsCrossed, TrendingUp, RefreshCw, Calendar, Filter,
   Key, Layers, XCircle, ArrowRight, Plus, Pencil, Trash2, Tag, Users,
-  Truck, Star, Eye, EyeOff, ChevronDown, Save, X
+  Truck, Star, Eye, EyeOff, ChevronDown, Save, X, BrainCircuit, BarChart3
 } from 'lucide-react';
+import ProfitLossAnalytics from '../components/analytics/ProfitLossAnalytics';
 
 // ─── Reusable Modal Component ──────────────────────────────────────────────────
 function Modal({ title, onClose, children }) {
@@ -524,6 +525,7 @@ export default function Admin() {
         <div style={{ display: 'flex', gap: '0.25rem', borderBottom: '1px solid #334155', marginBottom: '1.75rem', overflowX: 'auto' }}>
           {[
             { id: 'enquiries', label: `Orders & Bookings (${orders.length})`, icon: <Layers size={16} />, color: '#ea580c' },
+            { id: 'analytics', label: 'Profit & Loss Analytics (AI)', icon: <BrainCircuit size={16} />, color: '#06b6d4' },
             { id: 'menu', label: `Menu (${menuItems.length})`, icon: <UtensilsCrossed size={16} />, color: '#ea580c' },
             { id: 'offers', label: `Offers (${offers.length})`, icon: <Tag size={16} />, color: '#a78bfa' },
             { id: 'delivery', label: `Delivery Partners (${partners.length})`, icon: <Truck size={16} />, color: '#3b82f6' },
@@ -699,6 +701,13 @@ export default function Admin() {
               </div>
             )}
           </div>
+        )}
+
+        {/* ════════════════════════════════════════════════
+            TAB: PROFIT & LOSS ANALYTICS (AI)
+        ════════════════════════════════════════════════ */}
+        {activeTab === 'analytics' && (
+          <ProfitLossAnalytics />
         )}
 
         {/* ════════════════════════════════════════════════

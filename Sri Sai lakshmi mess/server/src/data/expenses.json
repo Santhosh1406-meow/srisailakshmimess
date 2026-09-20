@@ -1,0 +1,112 @@
+[
+  {
+    "id": "EXP-101",
+    "title": "Ponni Rice (50kg bag) & Toor Dhal",
+    "category": "Raw Materials",
+    "amount": 3850,
+    "date": "2026-09-19",
+    "notes": "Weekly wholesale grocery purchase",
+    "paymentMethod": "Cash",
+    "createdAt": "2026-09-20T15:47:19.570Z",
+    "updatedAt": "2026-09-20T15:47:19.570Z"
+  },
+  {
+    "id": "EXP-102",
+    "title": "Commercial LPG Cylinder Refill (19kg)",
+    "category": "Utilities & LPG",
+    "amount": 1850,
+    "date": "2026-09-17",
+    "notes": "Kitchen cooking fuel",
+    "paymentMethod": "UPI",
+    "createdAt": "2026-09-20T15:47:19.570Z",
+    "updatedAt": "2026-09-20T15:47:19.570Z"
+  },
+  {
+    "id": "EXP-103",
+    "title": "Fresh Country Milk & Curd (Aavin)",
+    "category": "Raw Materials",
+    "amount": 840,
+    "date": "2026-09-20",
+    "notes": "Daily dairy supply for tea, coffee, meals",
+    "paymentMethod": "UPI",
+    "createdAt": "2026-09-20T15:47:19.570Z",
+    "updatedAt": "2026-09-20T15:47:19.570Z"
+  },
+  {
+    "id": "EXP-104",
+    "title": "Vegetables & Country Greens from Uzhavar Sandhai",
+    "category": "Raw Materials",
+    "amount": 1250,
+    "date": "2026-09-20",
+    "notes": "Onions, tomatoes, drumstick, coriander",
+    "paymentMethod": "Cash",
+    "createdAt": "2026-09-20T15:47:19.570Z",
+    "updatedAt": "2026-09-20T15:47:19.570Z"
+  },
+  {
+    "id": "EXP-105",
+    "title": "Eco-friendly Banana Leaves & Food Containers",
+    "category": "Packaging",
+    "amount": 950,
+    "date": "2026-09-18",
+    "notes": "Dine-in leaves + takeaway containers",
+    "paymentMethod": "Cash",
+    "createdAt": "2026-09-20T15:47:19.570Z",
+    "updatedAt": "2026-09-20T15:47:19.570Z"
+  },
+  {
+    "id": "EXP-106",
+    "title": "Cook & Helper Weekly Wages",
+    "category": "Staff Wages",
+    "amount": 6500,
+    "date": "2026-09-16",
+    "notes": "Main chef and kitchen assistant weekly pay",
+    "paymentMethod": "Cash",
+    "createdAt": "2026-09-20T15:47:19.570Z",
+    "updatedAt": "2026-09-20T15:47:19.570Z"
+  },
+  {
+    "id": "EXP-107",
+    "title": "Shop Electricity Bill (TNEB)",
+    "category": "Utilities & LPG",
+    "amount": 2400,
+    "date": "2026-09-08",
+    "notes": "Monthly refrigerator & lighting charges",
+    "paymentMethod": "Bank Transfer",
+    "createdAt": "2026-09-20T15:47:19.570Z",
+    "updatedAt": "2026-09-20T15:47:19.570Z"
+  },
+  {
+    "id": "EXP-108",
+    "title": "Groundnut Oil (15L Tin) & Pure Ghee",
+    "category": "Raw Materials",
+    "amount": 3200,
+    "date": "2026-09-14",
+    "notes": "For Dosas and Parottas",
+    "paymentMethod": "UPI",
+    "createdAt": "2026-09-20T15:47:19.570Z",
+    "updatedAt": "2026-09-20T15:47:19.570Z"
+  },
+  {
+    "id": "EXP-109",
+    "title": "Premises Shop Rent (Rathanavillas Stop)",
+    "category": "Rent & Maintenance",
+    "amount": 8500,
+    "date": "2026-09-05",
+    "notes": "Monthly shop space lease",
+    "paymentMethod": "Bank Transfer",
+    "createdAt": "2026-09-20T15:47:19.570Z",
+    "updatedAt": "2026-09-20T15:47:19.570Z"
+  },
+  {
+    "id": "EXP-110",
+    "title": "Cleaning Supplies & Detergents",
+    "category": "Other",
+    "amount": 600,
+    "date": "2026-09-12",
+    "notes": "Sanitation, floor washing",
+    "paymentMethod": "Cash",
+    "createdAt": "2026-09-20T15:47:19.570Z",
+    "updatedAt": "2026-09-20T15:47:19.570Z"
+  }
+]
