@@ -9,17 +9,19 @@ import {
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
+  'Order Received':   { color: '#d97706', bg: '#fef3c7', icon: Package },
   'Enquiry Received': { color: '#6366f1', bg: '#eef2ff', icon: Package },
-  'Processing':       { color: '#f59e0b', bg: '#fffbeb', icon: Clock },
+  'Processing':       { color: '#0284c7', bg: '#e0f2fe', icon: Clock },
   'Confirmed':        { color: '#10b981', bg: '#ecfdf5', icon: CheckCircle2 },
-  'Ready':            { color: '#3b82f6', bg: '#eff6ff', icon: ShoppingBag },
-  'Out for Delivery': { color: '#f97316', bg: '#fff7ed', icon: Truck },
-  'Completed':        { color: '#22c55e', bg: '#f0fdf4', icon: Star },
+  'Ready':            { color: '#8b5cf6', bg: '#f5f3ff', icon: ShoppingBag },
+  'Out for Delivery': { color: '#2563eb', bg: '#eff6ff', icon: Truck },
+  'Delivered':        { color: '#059669', bg: '#ecfdf5', icon: Star },
+  'Completed':        { color: '#059669', bg: '#ecfdf5', icon: Star },
   'Cancelled':        { color: '#ef4444', bg: '#fef2f2', icon: XCircle },
 };
 
 function StatusBadge({ status }) {
-  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG['Enquiry Received'];
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG['Order Received'] || STATUS_CONFIG['Enquiry Received'];
   const Icon = cfg.icon;
   return (
     <span style={{
@@ -69,26 +71,53 @@ export default function CustomerDashboard() {
     if (!authLoading && user && user.role === 'admin') navigate('/admin');
   }, [user, authLoading, navigate]);
 
-  const loadOrders = async () => {
+  const loadOrders = async (silent = false) => {
     try {
-      setRefreshing(true);
+      if (!silent) setRefreshing(true);
       setError('');
       const data = await getMyOrders();
       setOrders(data || []);
     } catch (e) {
-      setError(e.message);
+      if (!silent) setError(e.message);
     } finally {
       setLoading(false);
-      setRefreshing(false);
+      if (!silent) setRefreshing(false);
     }
   };
 
   useEffect(() => { if (user) loadOrders(); }, [user]);
 
+  // Real-time live polling every 4 seconds for active orders
+  useEffect(() => {
+    if (!user || orders.length === 0) return;
+    const hasActive = orders.some(o => {
+      const s = (o.status || '').toLowerCase();
+      return !s.includes('delivered') && !s.includes('completed') && !s.includes('cancelled');
+    });
+    if (!hasActive) return;
+
+    const pollInterval = setInterval(() => {
+      loadOrders(true);
+    }, 4000);
+
+    return () => clearInterval(pollInterval);
+  }, [user, orders]);
+
+  // Listen to live order update events across tabs
+  useEffect(() => {
+    const handleUpdate = () => { if (user) loadOrders(true); };
+    window.addEventListener('storage', handleUpdate);
+    window.addEventListener('ssl_order_status_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('ssl_order_status_updated', handleUpdate);
+    };
+  }, [user]);
+
   const stats = {
     total: orders.length,
-    active: orders.filter(o => !['Completed','Cancelled'].includes(o.status)).length,
-    completed: orders.filter(o => o.status === 'Completed').length,
+    active: orders.filter(o => !['Completed','Delivered','Cancelled'].includes(o.status)).length,
+    completed: orders.filter(o => ['Completed','Delivered'].includes(o.status)).length,
     paid: orders.filter(o => o.paymentStatus === 'Paid').length,
   };
 

@@ -238,26 +238,38 @@ class OrderService {
 
   /** Admin: assign a delivery partner to an order */
   async assignDeliveryPartner(orderId, partnerId, partnerName, partnerPhone) {
+    const cleanId = (orderId || '').trim().toUpperCase();
+    let dbUpdated = null;
     if (isDbConnected()) {
       try {
-        await query(`
+        const res = await query(`
           UPDATE orders 
           SET delivery_partner_id = $1, delivery_partner_name = $2, delivery_partner_phone = $3, updated_at = CURRENT_TIMESTAMP
           WHERE UPPER(id) = UPPER($4)
-        `, [partnerId, partnerName, partnerPhone, orderId]);
+          RETURNING *
+        `, [partnerId, partnerName, partnerPhone, cleanId]);
+        if (res && res.rows && res.rows.length > 0) {
+          dbUpdated = rowToOrder(res.rows[0]);
+        }
       } catch (e) {
         console.error('[OrderService] Error assigning partner in Neon DB:', e.message);
       }
     }
 
-    const order = this.orders.find((o) => (o.id || '').toUpperCase() === (orderId || '').toUpperCase());
-    if (!order) return null;
-    order.deliveryPartnerId = partnerId;
-    order.deliveryPartnerName = partnerName;
-    order.deliveryPartnerPhone = partnerPhone;
-    order.updatedAt = new Date().toISOString();
-    this._persist();
-    return order;
+    const orderIndex = this.orders.findIndex((o) => (o.id || '').toUpperCase() === cleanId);
+    if (orderIndex !== -1) {
+      this.orders[orderIndex].deliveryPartnerId = partnerId;
+      this.orders[orderIndex].deliveryPartnerName = partnerName;
+      this.orders[orderIndex].deliveryPartnerPhone = partnerPhone;
+      this.orders[orderIndex].updatedAt = new Date().toISOString();
+      this._persist();
+      return dbUpdated || this.orders[orderIndex];
+    } else if (dbUpdated) {
+      this.orders.unshift(dbUpdated);
+      this._persist();
+      return dbUpdated;
+    }
+    return dbUpdated || null;
   }
 
   /** Delivery partner: accept/claim an order */
@@ -313,34 +325,42 @@ class OrderService {
   async updateOrderStatus(id, status) {
     const cleanId = (id || '').trim().toUpperCase();
     const deliveredAt = (status === 'Delivered' || status === 'Completed') ? new Date().toISOString() : null;
+    let dbUpdatedOrder = null;
 
     if (isDbConnected()) {
       try {
-        if (deliveredAt) {
-          await query(`
-            UPDATE orders SET status = $1, delivered_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-            WHERE UPPER(id) = UPPER($2)
-          `, [status, cleanId]);
-        } else {
-          await query(`
-            UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE UPPER(id) = UPPER($2)
-          `, [status, cleanId]);
+        const res = await query(`
+          UPDATE orders 
+          SET status = $1, 
+              delivered_at = CASE WHEN $2::text IS NOT NULL THEN CURRENT_TIMESTAMP ELSE delivered_at END,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE UPPER(id) = UPPER($3)
+          RETURNING *
+        `, [status, deliveredAt, cleanId]);
+        if (res && res.rows && res.rows.length > 0) {
+          dbUpdatedOrder = rowToOrder(res.rows[0]);
         }
       } catch (e) {
         console.error('[OrderService] Error updating status in Neon DB:', e.message);
       }
     }
 
-    const order = this.orders.find((o) => (o.id || '').toUpperCase() === cleanId);
-    if (!order) return null;
-    order.status = status;
-    if (deliveredAt) {
-      order.deliveredAt = deliveredAt;
+    const orderIndex = this.orders.findIndex((o) => (o.id || '').toUpperCase() === cleanId);
+    if (orderIndex !== -1) {
+      this.orders[orderIndex].status = status;
+      if (deliveredAt) {
+        this.orders[orderIndex].deliveredAt = deliveredAt;
+      }
+      this.orders[orderIndex].updatedAt = new Date().toISOString();
+      this._persist();
+      return dbUpdatedOrder || this.orders[orderIndex];
+    } else if (dbUpdatedOrder) {
+      this.orders.unshift(dbUpdatedOrder);
+      this._persist();
+      return dbUpdatedOrder;
     }
-    order.updatedAt = new Date().toISOString();
-    this._persist();
-    return order;
+
+    return dbUpdatedOrder || null;
   }
 
   async updatePaymentInfo(id, { paymentId, razorpayOrderId, paymentStatus, amount }) {

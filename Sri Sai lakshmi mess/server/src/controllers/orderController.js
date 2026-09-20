@@ -130,6 +130,13 @@ exports.trackOrder = async (req, res, next) => {
       status: o.status,
       paymentStatus: o.paymentStatus,
       specialInstructions: o.specialInstructions,
+      orderType: o.orderType || 'delivery',
+      deliveryAddress: o.deliveryAddress || '',
+      amount: o.amount || 0,
+      items: o.items || [],
+      deliveryPartnerName: o.deliveryPartnerName || null,
+      deliveryPartnerPhone: o.deliveryPartnerPhone || null,
+      deliveredAt: o.deliveredAt || null,
       createdAt: o.createdAt,
       updatedAt: o.updatedAt
     }));

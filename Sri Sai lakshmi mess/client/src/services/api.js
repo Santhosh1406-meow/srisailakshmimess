@@ -222,12 +222,14 @@ export const updateOrderStatusAdmin = async (orderId, status, fallbackOrder = nu
     orders[idx].status = status;
     orders[idx].updatedAt = new Date().toISOString();
     saveLocalOrders(orders);
+    try { window.dispatchEvent(new CustomEvent('ssl_order_status_updated', { detail: { orderId, status } })); } catch (_) {}
     return serverUpdated || orders[idx];
   }
 
   if (serverUpdated) {
     orders.unshift(serverUpdated);
     saveLocalOrders(orders);
+    try { window.dispatchEvent(new CustomEvent('ssl_order_status_updated', { detail: { orderId, status } })); } catch (_) {}
     return serverUpdated;
   }
 
