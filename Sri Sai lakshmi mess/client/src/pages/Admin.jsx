@@ -12,7 +12,8 @@ import {
   ShieldCheck, Package, Clock, CheckCircle2, AlertCircle, Search, Phone,
   MessageCircle, UtensilsCrossed, TrendingUp, RefreshCw, Calendar, Filter,
   Key, Layers, XCircle, ArrowRight, Plus, Pencil, Trash2, Tag, Users,
-  Truck, Star, Eye, EyeOff, ChevronDown, Save, X, BrainCircuit, BarChart3
+  Truck, Star, Eye, EyeOff, ChevronDown, Save, X, BrainCircuit, BarChart3,
+  Menu, LogOut, ExternalLink, Sparkles, Home, ChevronRight
 } from 'lucide-react';
 import ProfitLossAnalytics from '../components/analytics/ProfitLossAnalytics';
 
@@ -86,8 +87,9 @@ export default function Admin() {
   const [error, setError] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
 
-  // Tab
+  // Tab & Sidebar
   const [activeTab, setActiveTab] = useState('enquiries');
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Order filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -473,84 +475,383 @@ export default function Admin() {
   const BTN_PRIMARY = { background: 'linear-gradient(135deg,#ea580c,#dc2626)', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' };
   const BTN_BLUE = { background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' };
 
-  return (
-    <div style={{ backgroundColor: '#0f172a', color: '#f8fafc', minHeight: '100vh', padding: '2rem 1rem 4rem 1rem' }}>
-      <div style={{ maxWidth: '1380px', margin: '0 auto' }}>
+  const pendingOrdersCount = orders.filter(o => ['Order Received', 'Enquiry Received', 'Pending'].includes(o.status)).length;
+  const confirmedCount = orders.filter(o => ['Confirmed', 'Delivered', 'Completed'].includes(o.status)).length;
 
-        {/* ── Header ── */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', paddingBottom: '1.5rem', borderBottom: '1px solid #334155', marginBottom: '2rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ea580c', fontWeight: '700', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              <ShieldCheck size={18} />
-              <span>Sri Sai Lakshmi Mess • Admin Portal</span>
+  const NAV_SECTIONS = [
+    {
+      title: 'OPERATIONS',
+      items: [
+        {
+          id: 'enquiries',
+          label: 'Orders & Bookings',
+          icon: <Package size={18} />,
+          badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} pending` : `${orders.length}`,
+          badgeBg: pendingOrdersCount > 0 ? '#ea580c' : 'rgba(255,255,255,0.08)',
+          badgeColor: '#ffffff',
+          color: '#ea580c'
+        },
+        {
+          id: 'analytics',
+          label: 'Profit & Loss (AI)',
+          icon: <BrainCircuit size={18} />,
+          badge: 'AI Insights',
+          badgeBg: 'linear-gradient(135deg, #0284c7, #06b6d4)',
+          badgeColor: '#ffffff',
+          color: '#06b6d4',
+          isAi: true
+        }
+      ]
+    },
+    {
+      title: 'MANAGEMENT',
+      items: [
+        {
+          id: 'menu',
+          label: 'Menu Catalog',
+          icon: <UtensilsCrossed size={18} />,
+          badge: `${menuItems.length}`,
+          badgeBg: 'rgba(56,189,248,0.12)',
+          badgeColor: '#38bdf8',
+          color: '#38bdf8'
+        },
+        {
+          id: 'offers',
+          label: 'Special Offers',
+          icon: <Tag size={18} />,
+          badge: `${offers.filter(o => o.isActive).length} active`,
+          badgeBg: 'rgba(167,139,250,0.12)',
+          badgeColor: '#a78bfa',
+          color: '#a78bfa'
+        },
+        {
+          id: 'delivery',
+          label: 'Delivery Fleet',
+          icon: <Truck size={18} />,
+          badge: `${partners.filter(p => p.isAvailable).length} online`,
+          badgeBg: 'rgba(52,211,153,0.12)',
+          badgeColor: '#34d399',
+          color: '#34d399'
+        },
+        {
+          id: 'customers',
+          label: 'Customer Database',
+          icon: <Users size={18} />,
+          badge: `${customers.length}`,
+          badgeBg: 'rgba(251,146,60,0.12)',
+          badgeColor: '#fb923c',
+          color: '#fb923c'
+        }
+      ]
+    }
+  ];
+
+  const getActiveTabTitle = () => {
+    switch (activeTab) {
+      case 'enquiries': return { title: 'Orders & Kitchen Bookings', sub: 'Manage live customer food orders, tracking status, and delivery assignments.' };
+      case 'analytics': return { title: 'Profit & Loss Financial Analytics & AI', sub: 'Evaluate financial health, analytical bar charts, operating overhead, and AI recommendations.' };
+      case 'menu': return { title: 'Menu Items & Dish Catalog', sub: 'Add new dishes, edit pricing, manage availability, and highlight popular items.' };
+      case 'offers': return { title: 'Promotional Offers & Discounts', sub: 'Create discount vouchers, promotional percentage deals, and cart minimums.' };
+      case 'delivery': return { title: 'Delivery Fleet & Dispatch', sub: 'Assign food deliveries, register delivery partners, and monitor online status.' };
+      case 'customers': return { title: 'Registered Customer Database', sub: 'Browse registered accounts, phone numbers, and join dates.' };
+      default: return { title: 'Admin Command Center', sub: 'Sri Sai Lakshmi Mess Portal' };
+    }
+  };
+
+  const headerInfo = getActiveTabTitle();
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#090d16', color: '#f8fafc', position: 'relative' }}>
+      {/* ── CSS Styles for Responsive Admin Sidebar ── */}
+      <style>{`
+        .admin-sidebar {
+          width: 275px;
+          background: #0f172a;
+          border-right: 1px solid #1e293b;
+          display: flex;
+          flex-direction: column;
+          flex-shrink: 0;
+          position: sticky;
+          top: 0;
+          height: 100vh;
+          overflow-y: auto;
+          transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 100;
+        }
+        .admin-main {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          min-height: 100vh;
+          background: #090d16;
+        }
+        .admin-nav-btn {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          padding: 0.72rem 0.85rem;
+          border-radius: 10px;
+          border: 1px solid transparent;
+          background: transparent;
+          color: #94a3b8;
+          font-size: 0.86rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.18s ease;
+          text-align: left;
+        }
+        .admin-nav-btn:hover {
+          background: rgba(30, 41, 59, 0.7);
+          color: #ffffff;
+        }
+        .admin-nav-btn.active {
+          background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+          color: #ffffff;
+          border-color: rgba(234, 88, 12, 0.4);
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        }
+        .admin-nav-btn.active.is-ai {
+          border-color: rgba(6, 182, 212, 0.5);
+          box-shadow: 0 0 16px rgba(6, 182, 212, 0.2);
+        }
+        .admin-mobile-overlay {
+          display: none;
+        }
+        .admin-hamburger-btn {
+          display: none;
+        }
+        @media (max-width: 992px) {
+          .admin-sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            transform: translateX(-100%);
+            box-shadow: 10px 0 30px rgba(0,0,0,0.6);
+          }
+          .admin-sidebar.open {
+            transform: translateX(0);
+          }
+          .admin-mobile-overlay.open {
+            display: block !important;
+          }
+          .admin-hamburger-btn {
+            display: flex !important;
+          }
+        }
+      `}</style>
+
+      {/* ── Mobile Overlay Backdrop ── */}
+      <div
+        className={`admin-mobile-overlay ${mobileSidebarOpen ? 'open' : ''}`}
+        onClick={() => setMobileSidebarOpen(false)}
+        style={{
+          position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(4px)', zIndex: 99
+        }}
+      />
+
+      {/* ── Admin Left Sidebar ── */}
+      <aside className={`admin-sidebar ${mobileSidebarOpen ? 'open' : ''}`}>
+        {/* Brand Header */}
+        <div style={{ padding: '1.4rem 1.25rem', borderBottom: '1px solid #1e293b' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'linear-gradient(135deg,#ea580c,#dc2626)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 4px 14px rgba(234,88,12,0.4)' }}>
+                <ShieldCheck size={22} />
+              </div>
+              <div>
+                <div style={{ fontWeight: '800', fontSize: '1rem', color: '#ffffff', lineHeight: '1.2' }}>
+                  Sri Sai Lakshmi
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#ea580c', fontWeight: '700', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  Admin Console
+                </div>
+              </div>
             </div>
-            <h1 style={{ fontSize: '2.25rem', fontWeight: '800', color: '#ffffff', margin: '0.25rem 0' }}>Management Dashboard</h1>
-            <p style={{ color: '#94a3b8', fontSize: '0.95rem' }}>
-              Logged in as <strong style={{ color: '#fb923c' }}>{user.name}</strong> ({user.email})
-            </p>
+            {mobileSidebarOpen && (
+              <button
+                onClick={() => setMobileSidebarOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <button onClick={loadAdminData} disabled={refreshing} style={{ backgroundColor: '#1e293b', color: '#cbd5e1', border: '1px solid #475569', padding: '0.65rem 1.2rem', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: '600' }}>
-              <RefreshCw size={16} className={refreshing ? 'spin-slow' : ''} />
-              <span>{refreshing ? 'Syncing...' : 'Refresh'}</span>
-            </button>
-            <button onClick={() => logout()} style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', padding: '0.65rem 1.2rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
-              Sign Out
-            </button>
+
+          <div style={{ marginTop: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.74rem', color: '#34d399', background: 'rgba(16,185,129,0.1)', padding: '0.3rem 0.65rem', borderRadius: '20px', width: 'fit-content' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+            <span>Store Online • Sivakasi</span>
           </div>
         </div>
 
-        {/* ── Stats Grid ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2.5rem' }}>
-          {[
-            { label: 'Total Orders', value: stats ? stats.totalOrders : orders.length, icon: <Package size={20} style={{ color: '#ea580c' }} />, color: '#ffffff', sub: 'All bookings' },
-            { label: 'Pending Action', value: stats ? stats.pendingEnquiries : orders.filter(o => o.status === 'Order Received').length, icon: <Clock size={20} style={{ color: '#f59e0b' }} />, color: '#f59e0b', sub: 'Awaiting response' },
-            { label: 'Confirmed Orders', value: stats ? stats.confirmedOrders : orders.filter(o => ['Confirmed','Delivered','Completed'].includes(o.status)).length, icon: <CheckCircle2 size={20} style={{ color: '#22c55e' }} />, color: '#22c55e', sub: 'Confirmed & delivered' },
-            { label: 'Menu Items', value: menuItems.length, icon: <UtensilsCrossed size={20} style={{ color: '#38bdf8' }} />, color: '#38bdf8', sub: 'Active dishes' },
-            { label: 'Active Offers', value: offers.filter(o => o.isActive).length, icon: <Tag size={20} style={{ color: '#a78bfa' }} />, color: '#a78bfa', sub: 'Live promotions' },
-            { label: 'Delivery Partners', value: partners.length, icon: <Truck size={20} style={{ color: '#34d399' }} />, color: '#34d399', sub: `${partners.filter(p=>p.isAvailable).length} online` },
-            { label: 'Customers', value: customers.length, icon: <Users size={20} style={{ color: '#fb923c' }} />, color: '#fb923c', sub: 'Registered users' }
-          ].map((stat, i) => (
-            <div key={i} style={CARD}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.8rem', fontWeight: '600', marginBottom: '0.5rem' }}>
-                <span>{stat.label}</span>{stat.icon}
+        {/* Navigation Link Groups */}
+        <div style={{ flex: 1, padding: '1.1rem 0.85rem', display: 'flex', flexDirection: 'column', gap: '1.4rem', overflowY: 'auto' }}>
+          {NAV_SECTIONS.map((sec, sIdx) => (
+            <div key={sIdx}>
+              <div style={{ fontSize: '0.68rem', fontWeight: '800', color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0 0.5rem 0.5rem 0.5rem' }}>
+                {sec.title}
               </div>
-              <div style={{ fontSize: '1.9rem', fontWeight: '800', color: stat.color }}>{stat.value}</div>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>{stat.sub}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                {sec.items.map((item) => {
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => { setActiveTab(item.id); setMobileSidebarOpen(false); }}
+                      className={`admin-nav-btn ${isActive ? 'active' : ''} ${item.isAi ? 'is-ai' : ''}`}
+                      style={{
+                        position: 'relative',
+                        borderLeft: isActive ? `3px solid ${item.color}` : '3px solid transparent'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+                        <span style={{ color: isActive ? item.color : '#94a3b8' }}>
+                          {item.icon}
+                        </span>
+                        <span style={{ color: isActive ? '#ffffff' : '#cbd5e1', fontSize: '0.875rem', fontWeight: isActive ? '700' : '600' }}>
+                          {item.label}
+                        </span>
+                      </div>
+                      {item.badge && (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '12px',
+                            background: item.badgeBg,
+                            color: item.badgeColor
+                          }}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ))}
         </div>
 
-        {/* ── Tab Navigation ── */}
-        <div style={{ display: 'flex', gap: '0.25rem', borderBottom: '1px solid #334155', marginBottom: '1.75rem', overflowX: 'auto' }}>
-          {[
-            { id: 'enquiries', label: `Orders & Bookings (${orders.length})`, icon: <Layers size={16} />, color: '#ea580c' },
-            { id: 'analytics', label: 'Profit & Loss Analytics (AI)', icon: <BrainCircuit size={16} />, color: '#06b6d4' },
-            { id: 'menu', label: `Menu (${menuItems.length})`, icon: <UtensilsCrossed size={16} />, color: '#ea580c' },
-            { id: 'offers', label: `Offers (${offers.length})`, icon: <Tag size={16} />, color: '#a78bfa' },
-            { id: 'delivery', label: `Delivery Partners (${partners.length})`, icon: <Truck size={16} />, color: '#3b82f6' },
-            { id: 'customers', label: `Customers (${customers.length})`, icon: <Users size={16} />, color: '#fb923c' }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+        {/* Sidebar Footer Profile & Actions */}
+        <div style={{ padding: '1rem', borderTop: '1px solid #1e293b', backgroundColor: 'rgba(15,23,42,0.85)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg,#ea580c,#f97316)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', color: '#fff', fontSize: '0.9rem' }}>
+              {(user.name || 'A').charAt(0).toUpperCase()}
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontWeight: '700', fontSize: '0.85rem', color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user.name}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user.email}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <Link
+              to="/"
               style={{
-                padding: '0.85rem 1.25rem', backgroundColor: 'transparent', border: 'none',
-                borderBottom: activeTab === tab.id ? `3px solid ${tab.color}` : '3px solid transparent',
-                color: activeTab === tab.id ? tab.color : '#94a3b8',
-                fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                gap: '0.5rem', fontSize: '0.9rem', whiteSpace: 'nowrap', transition: 'all 0.2s ease'
+                flex: 1, textDecoration: 'none', backgroundColor: '#1e293b', color: '#cbd5e1',
+                padding: '0.45rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '600',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem',
+                border: '1px solid #334155'
               }}
             >
-              {tab.icon}<span>{tab.label}</span>
+              <ExternalLink size={13} />
+              <span>Visit Site</span>
+            </Link>
+            <button
+              onClick={() => logout()}
+              style={{
+                backgroundColor: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)',
+                padding: '0.45rem 0.75rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '600',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem'
+              }}
+            >
+              <LogOut size={13} />
+              <span>Sign Out</span>
             </button>
-          ))}
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Main Content Area ── */}
+      <main className="admin-main">
+        {/* Top Navbar */}
+        <div style={{ padding: '0.9rem 1.75rem', borderBottom: '1px solid #1e293b', backgroundColor: '#0f172a', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', position: 'sticky', top: 0, zIndex: 90 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+              className="admin-hamburger-btn"
+              style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', width: '38px', height: '38px', borderRadius: '8px', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <Menu size={18} />
+            </button>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: '#94a3b8' }}>
+                <span>Console</span>
+                <ChevronRight size={12} />
+                <span style={{ color: activeTab === 'analytics' ? '#38bdf8' : '#ea580c', fontWeight: '700' }}>
+                  {activeTab === 'enquiries' ? 'Orders' : activeTab === 'analytics' ? 'P&L Analytics (AI)' : activeTab === 'menu' ? 'Menu' : activeTab === 'offers' ? 'Offers' : activeTab === 'delivery' ? 'Delivery' : 'Customers'}
+                </span>
+              </div>
+              <h1 style={{ margin: '0.15rem 0 0 0', fontSize: '1.35rem', fontWeight: '800', color: '#ffffff' }}>
+                {headerInfo.title}
+              </h1>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              onClick={loadAdminData}
+              disabled={refreshing}
+              style={{
+                backgroundColor: '#1e293b', color: '#cbd5e1', border: '1px solid #334155',
+                padding: '0.5rem 0.95rem', borderRadius: '8px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.82rem', fontWeight: '600'
+              }}
+            >
+              <RefreshCw size={14} className={refreshing ? 'spin-slow' : ''} />
+              <span>{refreshing ? 'Syncing...' : 'Sync Live Data'}</span>
+            </button>
+          </div>
         </div>
 
-        {/* ════════════════════════════════════════════════
-            TAB 1: ORDERS & BOOKINGS
-        ════════════════════════════════════════════════ */}
-        {activeTab === 'enquiries' && (
+        {/* Dynamic Page Container */}
+        <div style={{ padding: '1.75rem', maxWidth: '1440px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+
+          {/* Quick Contextual Stats Row for Orders Tab */}
+          {activeTab === 'enquiries' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
+              {[
+                { label: 'Total Orders', value: stats ? stats.totalOrders : orders.length, icon: <Package size={18} style={{ color: '#ea580c' }} />, color: '#ffffff', sub: 'All bookings' },
+                { label: 'Pending Action', value: pendingOrdersCount, icon: <Clock size={18} style={{ color: '#f59e0b' }} />, color: '#f59e0b', sub: 'Awaiting response' },
+                { label: 'Confirmed & Done', value: confirmedCount, icon: <CheckCircle2 size={18} style={{ color: '#22c55e' }} />, color: '#22c55e', sub: 'Processed or delivered' },
+                { label: 'Active Menu Dishes', value: menuItems.length, icon: <UtensilsCrossed size={18} style={{ color: '#38bdf8' }} />, color: '#38bdf8', sub: 'Live menu' },
+                { label: 'Delivery Fleet', value: partners.length, icon: <Truck size={18} style={{ color: '#34d399' }} />, color: '#34d399', sub: `${partners.filter(p=>p.isAvailable).length} online` }
+              ].map((st, i) => (
+                <div key={i} style={CARD}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.78rem', fontWeight: '600', marginBottom: '0.4rem' }}>
+                    <span>{st.label}</span>{st.icon}
+                  </div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: '800', color: st.color }}>{st.value}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.2rem' }}>{st.sub}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════
+              TAB 1: ORDERS & BOOKINGS
+          ════════════════════════════════════════════════ */}
+          {activeTab === 'enquiries' && (
           <div>
             {/* Search & Filter Bar */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', ...CARD }}>
@@ -1121,7 +1422,8 @@ export default function Admin() {
           </div>
         )}
 
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
