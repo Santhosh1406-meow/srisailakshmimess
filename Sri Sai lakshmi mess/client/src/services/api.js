@@ -457,17 +457,6 @@ export const validateOfferCode = async (code, orderAmount = 0) => {
   }
 };
 
-export const getAllCustomers = async () => {
-  try {
-    const json = await safeFetchJson(`${API_BASE_URL}/delivery/customers`, {
-      headers: { ...getAuthHeader() }
-    });
-    return json.data || [];
-  } catch (error) {
-    return [];
-  }
-};
-
 // ─── Analytics & AI Profit/Loss Management ──────────────────────────────────
 
 export const fetchProfitLossData = async (timeframe = '6months') => {
