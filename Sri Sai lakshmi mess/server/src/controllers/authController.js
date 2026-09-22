@@ -22,9 +22,14 @@ exports.register = async (req, res, next) => {
   try {
     const { name, email, phone, password } = req.body;
 
-    // 10-digit Indian Mobile Number validation
+    const errors = [];
+    if (!name || name.trim().length < 2) errors.push('Full name must be at least 2 characters.');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.push('Valid email address is required.');
+    if (!password || password.length < 6) errors.push('Password must be at least 6 characters.');
+
+    // 10-digit Indian Mobile Number validation (optional if left blank)
     let normalizedPhone = '';
-    if (phone) {
+    if (phone && String(phone).trim() !== '') {
       const rawPhone = String(phone).replace(/\s+/g, '').replace(/[-()+]/g, '');
       normalizedPhone = rawPhone;
       if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {

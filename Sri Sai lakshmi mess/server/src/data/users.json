@@ -6,9 +6,24 @@
     "phone": "9876543210",
     "passwordHash": "$2b$10$92VCe6qjZXJntoku38KIYemjDgN9EqLOUge/mwEIh9i.C0XoPZSVa",
     "role": "admin",
-    "vehicleNumber": null,
-    "isAvailable": false,
-    "totalDeliveries": 0,
     "createdAt": "2026-09-18T07:18:46.224Z"
+  },
+  {
+    "id": "USR-1790081196655-2187",
+    "name": "SANTHOSH A",
+    "email": "24ucs239@anjaconline.org",
+    "phone": "9791947667",
+    "passwordHash": "$2b$10$HAoc6/PoPcMljZXJemELneapUsD9eAodbfQVzuNf8bAsYLf83hvzy",
+    "role": "customer",
+    "createdAt": "2026-09-22T12:46:36.655Z"
+  },
+  {
+    "id": "USR-1790081301738-5835",
+    "name": "Sam Joshua",
+    "email": "jk206712@gmail.com",
+    "phone": "9791947667",
+    "passwordHash": "$2b$10$uGB1e843WTfyhXSsIlGuDur8fENmTJ3Br.0AHBTgxUJMMm4yu8HIa",
+    "role": "customer",
+    "createdAt": "2026-09-22T12:48:21.738Z"
   }
 ]
