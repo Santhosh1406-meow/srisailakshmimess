@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Mail,
@@ -18,11 +18,23 @@ export default function Login() {
 
   const from = location.state?.from?.pathname;
 
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({
+    email: location.state?.email || '',
+    password: ''
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [infoMessage, setInfoMessage] = useState('');
+  const [infoMessage, setInfoMessage] = useState(location.state?.message || '');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (location.state?.message) {
+      setInfoMessage(location.state.message);
+    }
+    if (location.state?.email) {
+      setFormData((prev) => ({ ...prev, email: location.state.email }));
+    }
+  }, [location.state]);
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));

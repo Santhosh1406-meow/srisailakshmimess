@@ -120,7 +120,7 @@ export function AuthProvider({ children }) {
     throw new Error('Invalid email or password. Please verify your credentials.');
   }, []);
 
-  const register = useCallback(async ({ name, email, phone, password }) => {
+  const register = useCallback(async ({ name, email, phone, password }, autoLogin = false) => {
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
@@ -135,11 +135,12 @@ export function AuthProvider({ children }) {
           const msg = json.errors ? (Array.isArray(json.errors) ? json.errors.join(' ') : json.errors) : (json.message || 'Registration failed.');
           throw new Error(msg);
         }
-        localStorage.setItem('ssl_auth_token', json.token);
-        localStorage.setItem('ssl_user', JSON.stringify(json.user));
-        localStorage.removeItem('ssl_demo_user');
-        setToken(json.token);
-        setUser(json.user);
+        if (autoLogin) {
+          localStorage.setItem('ssl_auth_token', json.token);
+          localStorage.setItem('ssl_user', JSON.stringify(json.user));
+          setToken(json.token);
+          setUser(json.user);
+        }
         return json.user;
       }
     } catch (err) {
@@ -169,12 +170,13 @@ export function AuthProvider({ children }) {
       localStorage.setItem('ssl_local_users', JSON.stringify(localUsers));
     } catch (_) {}
 
-    const localToken = `ssl_token_local_${Date.now()}`;
-    localStorage.setItem('ssl_auth_token', localToken);
-    localStorage.setItem('ssl_user', JSON.stringify(newUser));
-    localStorage.removeItem('ssl_demo_user');
-    setToken(localToken);
-    setUser(newUser);
+    if (autoLogin) {
+      const localToken = `ssl_token_local_${Date.now()}`;
+      localStorage.setItem('ssl_auth_token', localToken);
+      localStorage.setItem('ssl_user', JSON.stringify(newUser));
+      setToken(localToken);
+      setUser(newUser);
+    }
     return newUser;
   }, []);
 

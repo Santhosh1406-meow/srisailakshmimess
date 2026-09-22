@@ -85,6 +85,20 @@ class UserService {
     }
   }
 
+  async syncFromDb() {
+    if (!isDbConnected()) return;
+    try {
+      const res = await query('SELECT * FROM users ORDER BY created_at ASC');
+      if (res && res.rows && res.rows.length > 0) {
+        this.users = res.rows.map(rowToUser);
+        this._persist();
+        console.log(`✅ [UserService] Synced ${this.users.length} user(s) from Neon PostgreSQL database.`);
+      }
+    } catch (err) {
+      console.warn('[UserService] Could not sync users from DB:', err.message);
+    }
+  }
+
   async register({ name, email, phone, password, role = 'customer' }) {
     const cleanEmail = email.trim().toLowerCase();
 
@@ -126,8 +140,15 @@ class UserService {
           newUser.createdAt,
           new Date()
         ]);
+        console.log(`✅ [UserService] Successfully registered customer ${newUser.email} to Neon DB.`);
       } catch (dbErr) {
         console.error('[UserService] Failed to insert into Neon DB:', dbErr.message);
+        if (dbErr.code === '23505') {
+          const err = new Error('An account with this email already exists in the database.');
+          err.statusCode = 409;
+          throw err;
+        }
+        throw new Error(`Database error saving user: ${dbErr.message}`);
       }
     }
 

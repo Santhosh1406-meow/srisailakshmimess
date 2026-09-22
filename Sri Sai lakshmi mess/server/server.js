@@ -1,6 +1,7 @@
 const app = require('./src/app');
 const config = require('./src/config');
 const { initDb } = require('./src/config/db');
+const userService = require('./src/services/userService');
 
 const PORT = config.port;
 
@@ -15,6 +16,7 @@ const server = app.listen(PORT, async () => {
 
   // Initialize Neon DB connection & tables if DATABASE_URL provided
   await initDb();
+  await userService.syncFromDb();
 });
 
 // Handle unhandled promise rejections

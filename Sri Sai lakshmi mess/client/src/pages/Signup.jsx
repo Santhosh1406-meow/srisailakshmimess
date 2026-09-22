@@ -56,12 +56,19 @@ export default function Signup() {
     setIsLoading(true);
     try {
       await register({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
         password: formData.password
+      }, false);
+      navigate('/login', {
+        replace: true,
+        state: {
+          registered: true,
+          message: 'Account created successfully! Please sign in with your email and password.',
+          email: formData.email.trim()
+        }
       });
-      navigate('/dashboard', { replace: true });
     } catch (err) {
       setGlobalError(err.message || 'Registration failed. Please try again.');
     } finally {
