@@ -11,7 +11,6 @@ const menuRoutes = require('./routes/menuRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const authRoutes = require('./routes/authRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
-const deliveryRoutes = require('./routes/deliveryRoutes');
 const offerRoutes = require('./routes/offerRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 
@@ -86,7 +85,6 @@ app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/delivery', deliveryRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/analytics', analyticsRoutes);
 

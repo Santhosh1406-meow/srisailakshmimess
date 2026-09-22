@@ -48,24 +48,3 @@ exports.adminOnly = (req, res, next) => {
   }
   next();
 };
-
-/**
- * Middleware: Delivery partner access check — requires req.user.role === 'delivery'
- */
-exports.deliveryOnly = (req, res, next) => {
-  if (!req.user || req.user.role !== 'delivery') {
-    return res.status(403).json({ success: false, message: 'Access denied. Delivery partner access required.' });
-  }
-  next();
-};
-
-/**
- * Middleware: Admin OR Delivery partner access
- */
-exports.adminOrDelivery = (req, res, next) => {
-  if (!req.user || !['admin', 'delivery'].includes(req.user.role)) {
-    return res.status(403).json({ success: false, message: 'Access denied.' });
-  }
-  next();
-};
-

@@ -1,6 +1,6 @@
 /**
  * Order / Enquiry Model Definition
- * Supports user auth, payment tracking, delivery partner assignment, and full order status lifecycle.
+ * Supports user auth, payment tracking, and full order status lifecycle.
  */
 
 class Order {
@@ -14,9 +14,9 @@ class Order {
     preferredDate,
     preferredTime,
     specialInstructions = '',
-    orderType = 'dine-in',      // 'dine-in' | 'delivery' | 'takeaway' | 'parcel'
-    deliveryAddress = '',        // Required when orderType === 'delivery'
-    status = 'Order Received',   // 'Order Received' | 'Enquiry Received' | 'Processing' | 'Confirmed' | 'Ready' | 'Out for Delivery' | 'Delivered' | 'Completed' | 'Cancelled'
+    orderType = 'dine-in',      // 'dine-in' | 'takeaway' | 'parcel'
+    deliveryAddress = '',        // Required when orderType === 'takeaway' / 'parcel'
+    status = 'Order Received',   // 'Order Received' | 'Enquiry Received' | 'Processing' | 'Confirmed' | 'Ready' | 'Delivered' | 'Completed' | 'Cancelled'
     userId = null,
     // Payment
     paymentStatus = 'Pay on Delivery', // 'Pay on Delivery' | 'Paid' | 'Pending' | 'Failed'
@@ -24,10 +24,6 @@ class Order {
     razorpayOrderId = null,
     amount = 0,
     items = [],
-    // Delivery partner assignment
-    deliveryPartnerId = null,
-    deliveryPartnerName = null,
-    deliveryPartnerPhone = null,
     deliveredAt = null,
     createdAt = new Date().toISOString(),
     updatedAt = new Date().toISOString()
@@ -50,9 +46,6 @@ class Order {
     this.razorpayOrderId = razorpayOrderId;
     this.amount = amount;
     this.items = Array.isArray(items) ? items : [];
-    this.deliveryPartnerId = deliveryPartnerId;
-    this.deliveryPartnerName = deliveryPartnerName;
-    this.deliveryPartnerPhone = deliveryPartnerPhone;
     this.deliveredAt = deliveredAt;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;

@@ -98,28 +98,14 @@ exports.getMe = async (req, res, next) => {
 };
 
 /**
- * POST /api/auth/register-delivery (Admin only)
- * Create a new delivery partner account
+ * GET /api/auth/customers (Admin only)
+ * List all registered customers
  */
-exports.registerDelivery = async (req, res, next) => {
+exports.getCustomers = async (req, res, next) => {
   try {
-    const { name, email, phone, password, vehicleNumber } = req.body;
-    const errors = [];
-    if (!name || name.trim().length < 2) errors.push('Full name must be at least 2 characters.');
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.push('Valid email is required.');
-    if (!password || password.length < 6) errors.push('Password must be at least 6 characters.');
-    if (errors.length > 0) return res.status(400).json({ success: false, errors });
-
-    const user = await userService.register({ name, email, phone, password, role: 'delivery', vehicleNumber });
-    const token = generateToken(user);
-    return res.status(201).json({
-      success: true,
-      message: `Delivery partner account created for ${user.name}.`,
-      token,
-      user: user.toPublic()
-    });
+    const customers = await userService.getAllCustomers();
+    return res.status(200).json({ success: true, count: customers.length, data: customers });
   } catch (error) {
-    if (error.statusCode === 409) return res.status(409).json({ success: false, message: error.message });
     next(error);
   }
 };

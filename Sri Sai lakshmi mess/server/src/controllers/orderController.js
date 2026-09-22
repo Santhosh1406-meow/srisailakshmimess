@@ -130,12 +130,10 @@ exports.trackOrder = async (req, res, next) => {
       status: o.status,
       paymentStatus: o.paymentStatus,
       specialInstructions: o.specialInstructions,
-      orderType: o.orderType || 'delivery',
+      orderType: o.orderType || 'dine-in',
       deliveryAddress: o.deliveryAddress || '',
       amount: o.amount || 0,
       items: o.items || [],
-      deliveryPartnerName: o.deliveryPartnerName || null,
-      deliveryPartnerPhone: o.deliveryPartnerPhone || null,
       deliveredAt: o.deliveredAt || null,
       createdAt: o.createdAt,
       updatedAt: o.updatedAt
@@ -227,26 +225,3 @@ exports.getAdminStats = async (req, res, next) => {
   }
 };
 
-/**
- * PATCH /api/orders/:id/assign — Admin: Assign a delivery partner to an order
- */
-exports.assignDeliveryPartner = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { partnerId, partnerName, partnerPhone } = req.body;
-    if (!partnerId) {
-      return res.status(400).json({ success: false, message: 'partnerId is required.' });
-    }
-    const updated = await orderService.assignDeliveryPartner(id, partnerId, partnerName || '', partnerPhone || '');
-    if (!updated) {
-      return res.status(404).json({ success: false, message: 'Order not found.' });
-    }
-    return res.status(200).json({
-      success: true,
-      message: 'Delivery partner assigned successfully.',
-      data: updated
-    });
-  } catch (error) {
-    next(error);
-  }
-};

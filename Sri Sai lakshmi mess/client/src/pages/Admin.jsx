@@ -3,16 +3,15 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   getAllOrdersAdmin, updateOrderStatusAdmin, getAdminStats, fetchMenu,
-  getDeliveryPartners, assignDeliveryPartnerAdmin, createDeliveryPartner,
   createMenuItemAdmin, updateMenuItemAdmin, deleteMenuItemAdmin,
   fetchAllOffersAdmin, createOfferAdmin, updateOfferAdmin, deleteOfferAdmin,
-  updateDeliveryPartner, deleteDeliveryPartner, getAllCustomers
+  getAllCustomers
 } from '../services/api';
 import {
   ShieldCheck, Package, Clock, CheckCircle2, AlertCircle, Search, Phone,
   MessageCircle, UtensilsCrossed, TrendingUp, RefreshCw, Calendar, Filter,
   Key, Layers, XCircle, ArrowRight, Plus, Pencil, Trash2, Tag, Users,
-  Truck, Star, Eye, EyeOff, ChevronDown, Save, X, BrainCircuit, BarChart3,
+  Star, Eye, EyeOff, ChevronDown, Save, X, BrainCircuit, BarChart3,
   Menu, LogOut, ExternalLink, Sparkles, Home, ChevronRight
 } from 'lucide-react';
 import ProfitLossAnalytics from '../components/analytics/ProfitLossAnalytics';
@@ -80,7 +79,6 @@ export default function Admin() {
   const [stats, setStats] = useState(null);
   const [menuItems, setMenuItems] = useState([]);
   const [offers, setOffers] = useState([]);
-  const [partners, setPartners] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -94,14 +92,6 @@ export default function Admin() {
   // Order filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('All');
-
-  // Delivery partner UI state
-  const [newPartner, setNewPartner] = useState({ name: '', email: '', phone: '', password: 'delivery123', vehicleNumber: '' });
-  const [partnerLoading, setPartnerLoading] = useState(false);
-  const [partnerError, setPartnerError] = useState('');
-  const [assigningId, setAssigningId] = useState(null);
-  const [editingPartner, setEditingPartner] = useState(null);
-  const [editPartnerData, setEditPartnerData] = useState({});
 
   // Menu CRUD state
   const [showMenuModal, setShowMenuModal] = useState(false);
@@ -164,15 +154,6 @@ export default function Admin() {
     }
   };
 
-  const loadPartners = async () => {
-    try {
-      const list = await getDeliveryPartners();
-      setPartners(list || []);
-    } catch (e) {
-      console.warn('Partners load failed:', e.message);
-    }
-  };
-
   const loadCustomers = async () => {
     try {
       const list = await getAllCustomers();
@@ -186,7 +167,6 @@ export default function Admin() {
     if (isAdmin) {
       loadAdminData();
       loadOffers();
-      loadPartners();
       loadCustomers();
       const timer = setInterval(loadAdminData, 20000);
       return () => clearInterval(timer);
@@ -389,44 +369,6 @@ export default function Admin() {
     }
   };
 
-  // ── Partner Edit/Delete ───────────────────────────────────────────────────────
-  const openEditPartner = (p) => {
-    setEditingPartner(p);
-    setEditPartnerData({ name: p.name, phone: p.phone, vehicleNumber: p.vehicleNumber || '', isAvailable: p.isAvailable });
-  };
-
-  const handleSavePartner = async () => {
-    try {
-      setPartnerLoading(true);
-      const updated = await updateDeliveryPartner(editingPartner.id, editPartnerData);
-      setPartners((prev) => prev.map((p) => (p.id === editingPartner.id ? updated : p)));
-      setEditingPartner(null);
-    } catch (e) {
-      setPartnerError(e.message || 'Failed to update partner.');
-    } finally {
-      setPartnerLoading(false);
-    }
-  };
-
-  const handleDeletePartner = async (id, name) => {
-    if (!window.confirm(`Remove delivery partner "${name}"? They will no longer have access.`)) return;
-    try {
-      await deleteDeliveryPartner(id);
-      setPartners((prev) => prev.filter((p) => p.id !== id));
-    } catch (e) {
-      alert('Failed to remove partner: ' + e.message);
-    }
-  };
-
-  const handleTogglePartnerAvailability = async (p) => {
-    try {
-      const updated = await updateDeliveryPartner(p.id, { isAvailable: !p.isAvailable });
-      setPartners((prev) => prev.map((x) => (x.id === p.id ? updated : x)));
-    } catch (e) {
-      alert('Failed to update availability: ' + e.message);
-    }
-  };
-
   // ────────────────────────────────────────────────────────────────────────────
   // NON-ADMIN VIEW
   // ────────────────────────────────────────────────────────────────────────────
@@ -439,7 +381,7 @@ export default function Admin() {
           </div>
           <h2 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '0.75rem', color: '#ffffff' }}>Admin Portal Sign In</h2>
           <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '2rem' }}>
-            Enter your restaurant administrator credentials to manage orders, menu, offers, and delivery partners.
+            Enter your restaurant administrator credentials to manage orders, menu, and offers.
           </p>
 
           <form onSubmit={handleAdminLogin} style={{ background: 'linear-gradient(135deg,rgba(30,41,59,0.95),rgba(15,23,42,0.95))', border: '1px solid rgba(249,115,22,0.3)', borderRadius: '16px', padding: '1.75rem', marginBottom: '2rem', textAlign: 'left' }}>
@@ -525,15 +467,6 @@ export default function Admin() {
           color: '#a78bfa'
         },
         {
-          id: 'delivery',
-          label: 'Delivery Fleet',
-          icon: <Truck size={18} />,
-          badge: `${partners.filter(p => p.isAvailable).length} online`,
-          badgeBg: 'rgba(52,211,153,0.12)',
-          badgeColor: '#34d399',
-          color: '#34d399'
-        },
-        {
           id: 'customers',
           label: 'Customer Database',
           icon: <Users size={18} />,
@@ -548,11 +481,10 @@ export default function Admin() {
 
   const getActiveTabTitle = () => {
     switch (activeTab) {
-      case 'enquiries': return { title: 'Orders & Kitchen Bookings', sub: 'Manage live customer food orders, tracking status, and delivery assignments.' };
+      case 'enquiries': return { title: 'Orders & Kitchen Bookings', sub: 'Manage live customer food orders, tracking status.' };
       case 'analytics': return { title: 'Profit & Loss Financial Analytics & AI', sub: 'Evaluate financial health, analytical bar charts, operating overhead, and AI recommendations.' };
       case 'menu': return { title: 'Menu Items & Dish Catalog', sub: 'Add new dishes, edit pricing, manage availability, and highlight popular items.' };
       case 'offers': return { title: 'Promotional Offers & Discounts', sub: 'Create discount vouchers, promotional percentage deals, and cart minimums.' };
-      case 'delivery': return { title: 'Delivery Fleet & Dispatch', sub: 'Assign food deliveries, register delivery partners, and monitor online status.' };
       case 'customers': return { title: 'Registered Customer Database', sub: 'Browse registered accounts, phone numbers, and join dates.' };
       default: return { title: 'Admin Command Center', sub: 'Sri Sai Lakshmi Mess Portal' };
     }
@@ -799,7 +731,7 @@ export default function Admin() {
                 <span>Console</span>
                 <ChevronRight size={12} />
                 <span style={{ color: activeTab === 'analytics' ? '#38bdf8' : '#ea580c', fontWeight: '700' }}>
-                  {activeTab === 'enquiries' ? 'Orders' : activeTab === 'analytics' ? 'P&L Analytics (AI)' : activeTab === 'menu' ? 'Menu' : activeTab === 'offers' ? 'Offers' : activeTab === 'delivery' ? 'Delivery' : 'Customers'}
+                  {activeTab === 'enquiries' ? 'Orders' : activeTab === 'analytics' ? 'P&L Analytics (AI)' : activeTab === 'menu' ? 'Menu' : activeTab === 'offers' ? 'Offers' : 'Customers'}
                 </span>
               </div>
               <h1 style={{ margin: '0.15rem 0 0 0', fontSize: '1.35rem', fontWeight: '800', color: '#ffffff' }}>
@@ -834,8 +766,7 @@ export default function Admin() {
                 { label: 'Total Orders', value: stats ? stats.totalOrders : orders.length, icon: <Package size={18} style={{ color: '#ea580c' }} />, color: '#ffffff', sub: 'All bookings' },
                 { label: 'Pending Action', value: pendingOrdersCount, icon: <Clock size={18} style={{ color: '#f59e0b' }} />, color: '#f59e0b', sub: 'Awaiting response' },
                 { label: 'Confirmed & Done', value: confirmedCount, icon: <CheckCircle2 size={18} style={{ color: '#22c55e' }} />, color: '#22c55e', sub: 'Processed or delivered' },
-                { label: 'Active Menu Dishes', value: menuItems.length, icon: <UtensilsCrossed size={18} style={{ color: '#38bdf8' }} />, color: '#38bdf8', sub: 'Live menu' },
-                { label: 'Delivery Fleet', value: partners.length, icon: <Truck size={18} style={{ color: '#34d399' }} />, color: '#34d399', sub: `${partners.filter(p=>p.isAvailable).length} online` }
+                { label: 'Active Menu Dishes', value: menuItems.length, icon: <UtensilsCrossed size={18} style={{ color: '#38bdf8' }} />, color: '#38bdf8', sub: 'Live menu' }
               ].map((st, i) => (
                 <div key={i} style={CARD}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.78rem', fontWeight: '600', marginBottom: '0.4rem' }}>
@@ -1262,118 +1193,6 @@ export default function Admin() {
                 </div>
               </Modal>
             )}
-          </div>
-        )}
-
-        {/* ════════════════════════════════════════════════
-            TAB 4: DELIVERY PARTNERS
-        ════════════════════════════════════════════════ */}
-        {activeTab === 'delivery' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-              <div>
-                <h2 style={{ color: '#ffffff', margin: 0, fontSize: '1.4rem', fontWeight: '800' }}>Delivery Partners</h2>
-                <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '0.25rem 0 0 0' }}>
-                  {partners.length} partners • {partners.filter(p => p.isAvailable).length} online
-                </p>
-              </div>
-            </div>
-
-            {/* Add New Partner Form */}
-            <div style={{ ...CARD, marginBottom: '2rem' }}>
-              <h3 style={{ color: '#f1f5f9', marginBottom: '1rem', fontSize: '1rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Plus size={18} style={{ color: '#3b82f6' }} /> Register New Delivery Partner
-              </h3>
-              {partnerError && !editingPartner && <div style={{ padding: '0.75rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#fca5a5', marginBottom: '1rem', fontSize: '0.85rem' }}>{partnerError}</div>}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
-                {[['name', 'Full Name *'], ['email', 'Email *'], ['phone', 'Phone'], ['vehicleNumber', 'Vehicle No.'], ['password', 'Password']].map(([field, label]) => (
-                  <div key={field}>
-                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.78rem', fontWeight: '700', marginBottom: '0.3rem' }}>{label}</label>
-                    <input value={newPartner[field]} onChange={e => setNewPartner(p => ({ ...p, [field]: e.target.value }))}
-                      style={{ ...INPUT_STYLE }} placeholder={field === 'password' ? 'delivery123' : ''} type={field === 'password' ? 'password' : 'text'} />
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={async () => {
-                  setPartnerLoading(true); setPartnerError('');
-                  try {
-                    await createDeliveryPartner(newPartner);
-                    await loadPartners();
-                    setNewPartner({ name: '', email: '', phone: '', password: 'delivery123', vehicleNumber: '' });
-                  } catch (e) { setPartnerError(e.message); }
-                  finally { setPartnerLoading(false); }
-                }}
-                disabled={partnerLoading}
-                style={{ ...BTN_BLUE, padding: '0.7rem 1.4rem', fontSize: '0.9rem' }}>
-                {partnerLoading ? <RefreshCw size={16} className="spin-slow" /> : <Plus size={16} />}
-                <span>{partnerLoading ? 'Creating...' : 'Create Partner Account'}</span>
-              </button>
-            </div>
-
-            {/* Partner Edit Modal */}
-            {editingPartner && (
-              <Modal title={`Edit Partner — ${editingPartner.name}`} onClose={() => setEditingPartner(null)}>
-                {partnerError && <div style={{ padding: '0.75rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#fca5a5', marginBottom: '1rem', fontSize: '0.85rem' }}>{partnerError}</div>}
-                <FormField label="Full Name">
-                  <input value={editPartnerData.name || ''} onChange={e => setEditPartnerData(d => ({ ...d, name: e.target.value }))} style={INPUT_STYLE} />
-                </FormField>
-                <FormField label="Phone">
-                  <input value={editPartnerData.phone || ''} onChange={e => setEditPartnerData(d => ({ ...d, phone: e.target.value }))} style={INPUT_STYLE} />
-                </FormField>
-                <FormField label="Vehicle Number">
-                  <input value={editPartnerData.vehicleNumber || ''} onChange={e => setEditPartnerData(d => ({ ...d, vehicleNumber: e.target.value }))} style={INPUT_STYLE} placeholder="e.g. TN59 AB 1234" />
-                </FormField>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#cbd5e1', cursor: 'pointer', fontSize: '0.88rem', fontWeight: '600', marginBottom: '1.5rem' }}>
-                  <input type="checkbox" checked={editPartnerData.isAvailable || false} onChange={e => setEditPartnerData(d => ({ ...d, isAvailable: e.target.checked }))} style={{ width: '16px', height: '16px', accentColor: '#22c55e' }} />
-                  🟢 Mark as Online/Available
-                </label>
-                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                  <button onClick={() => setEditingPartner(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Cancel</button>
-                  <button onClick={handleSavePartner} disabled={partnerLoading}
-                    style={{ ...BTN_BLUE, padding: '0.7rem 1.4rem', fontSize: '0.9rem', opacity: partnerLoading ? 0.7 : 1 }}>
-                    {partnerLoading ? <RefreshCw size={15} className="spin-slow" /> : <Save size={15} />}
-                    <span>{partnerLoading ? 'Saving...' : 'Save Changes'}</span>
-                  </button>
-                </div>
-              </Modal>
-            )}
-
-            {/* Partners List */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '1rem' }}>
-              {partners.length === 0 ? (
-                <div style={{ ...CARD, textAlign: 'center', gridColumn: '1/-1', padding: '2.5rem' }}>
-                  <Truck size={40} style={{ color: '#475569', marginBottom: '1rem' }} />
-                  <div style={{ color: '#64748b', fontSize: '0.9rem' }}>No delivery partners registered yet.</div>
-                </div>
-              ) : partners.map(p => (
-                <div key={p.id} style={{ ...CARD, borderColor: p.isAvailable ? 'rgba(34,197,94,0.3)' : '#334155' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                    <div>
-                      <div style={{ color: '#f1f5f9', fontWeight: '800', fontSize: '1.05rem' }}>🛵 {p.name}</div>
-                      <div style={{ color: '#94a3b8', fontSize: '0.82rem', marginTop: '0.15rem' }}>📞 {p.phone}</div>
-                      {p.vehicleNumber && <div style={{ color: '#64748b', fontSize: '0.78rem' }}>🚗 {p.vehicleNumber}</div>}
-                    </div>
-                    <button
-                      onClick={() => handleTogglePartnerAvailability(p)}
-                      style={{ padding: '0.3rem 0.75rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', border: 'none', cursor: 'pointer', background: p.isAvailable ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: p.isAvailable ? '#22c55e' : '#ef4444' }}>
-                      {p.isAvailable ? '🟢 Online' : '🔴 Offline'}
-                    </button>
-                  </div>
-                  <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
-                    <Star size={13} style={{ color: '#f59e0b', display: 'inline' }} /> {p.totalDeliveries || 0} deliveries completed
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid #334155' }}>
-                    <button onClick={() => openEditPartner(p)} style={{ ...BTN_BLUE, flex: 1, justifyContent: 'center' }}>
-                      <Pencil size={13} /><span>Edit</span>
-                    </button>
-                    <button onClick={() => handleDeletePartner(p.id, p.name)} style={{ ...BTN_DANGER, flex: 1, justifyContent: 'center' }}>
-                      <Trash2 size={13} /><span>Remove</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 

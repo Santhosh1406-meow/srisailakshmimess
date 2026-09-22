@@ -15,9 +15,6 @@ function rowToUser(row) {
     phone: row.phone,
     passwordHash: row.password_hash,
     role: row.role,
-    vehicleNumber: row.vehicle_number,
-    isAvailable: row.is_available,
-    totalDeliveries: Number(row.total_deliveries) || 0,
     createdAt: row.created_at
   });
 }
@@ -40,7 +37,9 @@ class UserService {
         const raw = fs.readFileSync(USERS_FILE, 'utf-8');
         const parsed = JSON.parse(raw || '[]');
         if (Array.isArray(parsed) && parsed.length > 0) {
-          this.users = parsed.map((u) => new User(u));
+          this.users = parsed
+            .filter((u) => u.role !== 'delivery') // filter out any old delivery accounts
+            .map((u) => new User(u));
         }
       }
       // Ensure default admin exists
@@ -86,8 +85,11 @@ class UserService {
     }
   }
 
-  async register({ name, email, phone, password, role = 'customer', vehicleNumber = null }) {
+  async register({ name, email, phone, password, role = 'customer' }) {
     const cleanEmail = email.trim().toLowerCase();
+
+    // Only allow 'customer' and 'admin' roles
+    const allowedRole = ['customer', 'admin'].includes(role) ? role : 'customer';
 
     // Check DB first if connected
     if (isDbConnected()) {
@@ -107,13 +109,13 @@ class UserService {
     }
 
     const passwordHash = await User.hashPassword(password);
-    const newUser = new User({ name, email: cleanEmail, phone, passwordHash, role, vehicleNumber });
+    const newUser = new User({ name, email: cleanEmail, phone, passwordHash, role: allowedRole });
 
     if (isDbConnected()) {
       try {
         await query(`
-          INSERT INTO users (id, name, email, phone, password_hash, role, vehicle_number, is_available, total_deliveries, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          INSERT INTO users (id, name, email, phone, password_hash, role, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `, [
           newUser.id,
           newUser.name,
@@ -121,9 +123,6 @@ class UserService {
           newUser.phone,
           newUser.passwordHash,
           newUser.role,
-          newUser.vehicleNumber,
-          newUser.isAvailable,
-          newUser.totalDeliveries,
           newUser.createdAt,
           new Date()
         ]);
@@ -180,96 +179,6 @@ class UserService {
     return this.users.map((u) => u.toPublic());
   }
 
-  async getAllDeliveryPartners() {
-    if (isDbConnected()) {
-      try {
-        const res = await query("SELECT * FROM users WHERE role = 'delivery' ORDER BY created_at DESC");
-        if (res && res.rows) {
-          return res.rows.map(rowToUser).map((u) => u.toPublic());
-        }
-      } catch (err) {
-        console.error('[UserService] Error fetching delivery partners from DB:', err.message);
-      }
-    }
-    return this.users.filter((u) => u.role === 'delivery').map((u) => u.toPublic());
-  }
-
-  async updateAvailability(userId, isAvailable) {
-    if (isDbConnected()) {
-      try {
-        await query('UPDATE users SET is_available = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [Boolean(isAvailable), userId]);
-      } catch (err) {
-        console.error('[UserService] Error updating availability in DB:', err.message);
-      }
-    }
-    const user = this.users.find((u) => u.id === userId);
-    if (!user) return null;
-    user.isAvailable = isAvailable;
-    this._persist();
-    return user.toPublic();
-  }
-
-  async incrementDeliveries(userId) {
-    if (isDbConnected()) {
-      try {
-        await query('UPDATE users SET total_deliveries = total_deliveries + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1', [userId]);
-      } catch (err) {
-        console.error('[UserService] Error incrementing deliveries in DB:', err.message);
-      }
-    }
-    const user = this.users.find((u) => u.id === userId);
-    if (user) {
-      user.totalDeliveries += 1;
-      this._persist();
-    }
-  }
-
-  async updateDeliveryPartner(id, { name, phone, vehicleNumber, isAvailable }) {
-    if (isDbConnected()) {
-      try {
-        const fields = [];
-        const vals = [];
-        let idx = 1;
-        if (name !== undefined) { fields.push(`name = $${idx++}`); vals.push(name.trim()); }
-        if (phone !== undefined) { fields.push(`phone = $${idx++}`); vals.push(phone.trim()); }
-        if (vehicleNumber !== undefined) { fields.push(`vehicle_number = $${idx++}`); vals.push(vehicleNumber.trim()); }
-        if (isAvailable !== undefined) { fields.push(`is_available = $${idx++}`); vals.push(Boolean(isAvailable)); }
-        if (fields.length > 0) {
-          fields.push(`updated_at = CURRENT_TIMESTAMP`);
-          vals.push(id);
-          await query(`UPDATE users SET ${fields.join(', ')} WHERE id = $${idx} AND role = 'delivery'`, vals);
-        }
-      } catch (err) {
-        console.error('[UserService] Error updating delivery partner in DB:', err.message);
-      }
-    }
-
-    const user = this.users.find((u) => u.id === id && u.role === 'delivery');
-    if (!user) return null;
-    if (name !== undefined) user.name = name.trim();
-    if (phone !== undefined) user.phone = phone.trim();
-    if (vehicleNumber !== undefined) user.vehicleNumber = vehicleNumber.trim();
-    if (isAvailable !== undefined) user.isAvailable = Boolean(isAvailable);
-    this._persist();
-    return user.toPublic();
-  }
-
-  async deleteDeliveryPartner(id) {
-    if (isDbConnected()) {
-      try {
-        await query("DELETE FROM users WHERE id = $1 AND role = 'delivery'", [id]);
-      } catch (err) {
-        console.error('[UserService] Error deleting delivery partner in DB:', err.message);
-      }
-    }
-
-    const idx = this.users.findIndex((u) => u.id === id && u.role === 'delivery');
-    if (idx === -1) return false;
-    this.users.splice(idx, 1);
-    this._persist();
-    return true;
-  }
-
   async getAllCustomers() {
     if (isDbConnected()) {
       try {
@@ -286,4 +195,3 @@ class UserService {
 }
 
 module.exports = new UserService();
-

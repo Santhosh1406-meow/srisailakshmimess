@@ -244,41 +244,6 @@ export const updateOrderStatusAdmin = async (orderId, status, fallbackOrder = nu
   throw new Error(`Order ${orderId} not found in system.`);
 };
 
-export const assignDeliveryPartnerAdmin = async (orderId, { partnerId, partnerName, partnerPhone }, fallbackOrder = null) => {
-  let serverUpdated = null;
-  let serverError = null;
-  try {
-    const json = await safeFetchJson(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/assign`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-      body: JSON.stringify({ partnerId, partnerName, partnerPhone })
-    });
-    serverUpdated = json.data;
-  } catch (error) {
-    serverError = error;
-  }
-
-  const orders = getLocalOrders();
-  let idx = orders.findIndex((o) => (o.id || '').toUpperCase() === (orderId || '').toUpperCase());
-
-  if (idx === -1 && fallbackOrder) {
-    orders.unshift({ ...fallbackOrder });
-    idx = 0;
-  }
-
-  if (idx !== -1) {
-    orders[idx].assignedPartner = { id: partnerId, name: partnerName, phone: partnerPhone };
-    orders[idx].status = 'Out for Delivery';
-    orders[idx].updatedAt = new Date().toISOString();
-    saveLocalOrders(orders);
-    return serverUpdated || orders[idx];
-  }
-
-  if (serverError) {
-    throw new Error(serverError.message);
-  }
-  throw new Error('Order not found to assign delivery partner.');
-};
 
 export const getAdminStats = async () => {
   try {
@@ -300,36 +265,6 @@ export const getAdminStats = async () => {
   }
 };
 
-export const getDeliveryPartners = async () => {
-  try {
-    const json = await safeFetchJson(`${API_BASE_URL}/delivery/partners`, {
-      headers: { ...getAuthHeader() }
-    });
-    return json.data;
-  } catch (error) {
-    return [
-      { id: 'USR-DEL-001', name: 'Murugan (Rider 1)', phone: '9444012345', vehicleNumber: 'TN59 AB 1234', isAvailable: true, totalDeliveries: 42 },
-      { id: 'USR-DEL-002', name: 'Selvam (Rider 2)', phone: '9600098765', vehicleNumber: 'TN59 CD 5678', isAvailable: false, totalDeliveries: 18 }
-    ];
-  }
-};
-
-export const createDeliveryPartner = async ({ name, email, phone, password, vehicleNumber }) => {
-  try {
-    const json = await safeFetchJson(`${API_BASE_URL}/auth/register-delivery`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-      body: JSON.stringify({ name, email, phone, password, vehicleNumber })
-    });
-    return json;
-  } catch (error) {
-    return {
-      success: true,
-      message: 'Delivery partner registered locally!',
-      data: { id: 'USR-DEL-' + Date.now(), name, email, phone, vehicleNumber, isAvailable: true }
-    };
-  }
-};
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -356,78 +291,14 @@ export const getCurrentUser = async () => {
   return json.user;
 };
 
-// ─── Delivery Partner API ─────────────────────────────────────────────────────
-
-export const getMyDeliveryOrders = async () => {
+export const getAllCustomers = async () => {
   try {
-    const json = await safeFetchJson(`${API_BASE_URL}/delivery/orders`, {
+    const json = await safeFetchJson(`${API_BASE_URL}/auth/customers`, {
       headers: { ...getAuthHeader() }
     });
-    return json.data;
+    return json.data || [];
   } catch (error) {
-    return getLocalOrders().filter((o) => o.status === 'out_for_delivery');
-  }
-};
-
-export const getAvailableDeliveryOrders = async () => {
-  try {
-    const json = await safeFetchJson(`${API_BASE_URL}/delivery/available`, {
-      headers: { ...getAuthHeader() }
-    });
-    return json.data;
-  } catch (error) {
-    return getLocalOrders().filter((o) => o.status === 'confirmed' || o.status === 'pending');
-  }
-};
-
-export const acceptDeliveryOrder = async (orderId) => {
-  try {
-    const json = await safeFetchJson(`${API_BASE_URL}/delivery/orders/${encodeURIComponent(orderId)}/accept`, {
-      method: 'PATCH',
-      headers: { ...getAuthHeader() }
-    });
-    return json.data;
-  } catch (error) {
-    const orders = getLocalOrders();
-    const idx = orders.findIndex((o) => o.id === orderId);
-    if (idx !== -1) {
-      orders[idx].status = 'out_for_delivery';
-      saveLocalOrders(orders);
-      return orders[idx];
-    }
-    throw new Error('Order not found.');
-  }
-};
-
-export const markOrderDelivered = async (orderId) => {
-  try {
-    const json = await safeFetchJson(`${API_BASE_URL}/delivery/orders/${encodeURIComponent(orderId)}/delivered`, {
-      method: 'PATCH',
-      headers: { ...getAuthHeader() }
-    });
-    return json.data;
-  } catch (error) {
-    const orders = getLocalOrders();
-    const idx = orders.findIndex((o) => o.id === orderId);
-    if (idx !== -1) {
-      orders[idx].status = 'delivered';
-      saveLocalOrders(orders);
-      return orders[idx];
-    }
-    throw new Error('Order not found.');
-  }
-};
-
-export const toggleDeliveryAvailability = async (isAvailable) => {
-  try {
-    const json = await safeFetchJson(`${API_BASE_URL}/delivery/availability`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-      body: JSON.stringify({ isAvailable })
-    });
-    return json.data;
-  } catch (error) {
-    return { isAvailable };
+    return [];
   }
 };
 
@@ -584,24 +455,6 @@ export const validateOfferCode = async (code, orderAmount = 0) => {
   } catch (error) {
     return { valid: false, message: error.message || 'Invalid offer code.' };
   }
-};
-
-// ─── Delivery Partner Admin Management ───────────────────────────────────────
-
-export const updateDeliveryPartner = async (id, data) => {
-  const json = await safeFetchJson(`${API_BASE_URL}/delivery/partners/${encodeURIComponent(id)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-    body: JSON.stringify(data)
-  });
-  return json.data;
-};
-
-export const deleteDeliveryPartner = async (id) => {
-  return await safeFetchJson(`${API_BASE_URL}/delivery/partners/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-    headers: { ...getAuthHeader() }
-  });
 };
 
 export const getAllCustomers = async () => {

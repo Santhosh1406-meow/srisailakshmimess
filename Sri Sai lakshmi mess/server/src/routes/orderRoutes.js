@@ -23,8 +23,6 @@ router.get('/my', protect, orderController.getMyOrders);
 // PATCH /api/orders/:id/status — Admin update order status
 router.patch('/:id/status', protect, adminOnly, orderController.updateOrderStatus);
 
-// PATCH /api/orders/:id/assign — Admin assign delivery partner
-router.patch('/:id/assign', protect, adminOnly, orderController.assignDeliveryPartner);
 
 // GET /api/orders/:id — Get single order by ID
 router.get('/:id', orderController.getOrderById);

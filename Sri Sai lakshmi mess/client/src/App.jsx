@@ -16,7 +16,6 @@ import Signup from './pages/Signup';
 import OrderTracking from './pages/OrderTracking';
 import Admin from './pages/Admin';
 import CustomerDashboard from './pages/CustomerDashboard';
-import DeliveryDashboard from './pages/DeliveryDashboard';
 
 export default function App() {
   return (
@@ -38,7 +37,6 @@ export default function App() {
             <Route path="track-order" element={<OrderTracking />} />
             <Route path="admin" element={<Admin />} />
             <Route path="dashboard" element={<CustomerDashboard />} />
-            <Route path="delivery" element={<DeliveryDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>

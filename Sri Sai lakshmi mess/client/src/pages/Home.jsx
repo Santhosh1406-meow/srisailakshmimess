@@ -10,7 +10,7 @@ export default function Home() {
   const [popularDishes, setPopularDishes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeOffers, setActiveOffers] = useState([]);
-
+  
   useEffect(() => {
     let isMounted = true;
     async function loadPopular() {

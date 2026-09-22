@@ -33,9 +33,6 @@ function rowToOrder(row) {
     razorpayOrderId: row.razorpay_order_id,
     amount: Number(row.amount) || 0,
     items: items,
-    deliveryPartnerId: row.delivery_partner_id,
-    deliveryPartnerName: row.delivery_partner_name,
-    deliveryPartnerPhone: row.delivery_partner_phone,
     deliveredAt: row.delivered_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -94,9 +91,8 @@ class OrderService {
             preferred_date, preferred_time, special_instructions,
             order_type, delivery_address, status, user_id,
             payment_status, payment_id, razorpay_order_id, amount,
-            items, delivery_partner_id, delivery_partner_name, delivery_partner_phone,
-            delivered_at, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+            items, delivered_at, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
           ON CONFLICT (id) DO NOTHING;
         `, [
           newOrder.id,
@@ -117,9 +113,6 @@ class OrderService {
           newOrder.razorpayOrderId,
           newOrder.amount,
           JSON.stringify(newOrder.items || []),
-          newOrder.deliveryPartnerId,
-          newOrder.deliveryPartnerName,
-          newOrder.deliveryPartnerPhone,
           newOrder.deliveredAt,
           newOrder.createdAt,
           newOrder.updatedAt
@@ -190,136 +183,6 @@ class OrderService {
       }
     }
     return this.orders.filter((o) => o.userId === userId);
-  }
-
-  /** Delivery partner: get orders assigned to this partner OR available (Ready, no partner) */
-  async getOrdersForDeliveryPartner(partnerId) {
-    if (isDbConnected()) {
-      try {
-        const res = await query(`
-          SELECT * FROM orders 
-          WHERE delivery_partner_id = $1 
-             OR (status = 'Ready' AND delivery_partner_id IS NULL AND order_type = 'delivery')
-          ORDER BY created_at DESC
-        `, [partnerId]);
-        if (res && res.rows) {
-          return res.rows.map(rowToOrder);
-        }
-      } catch (e) {
-        console.error('[OrderService] Error fetching delivery partner orders from Neon DB:', e.message);
-      }
-    }
-    return this.orders.filter(
-      (o) => o.deliveryPartnerId === partnerId || 
-             (o.status === 'Ready' && !o.deliveryPartnerId && o.orderType === 'delivery')
-    );
-  }
-
-  /** Delivery partner: get only available (unassigned) delivery orders */
-  async getAvailableDeliveryOrders() {
-    if (isDbConnected()) {
-      try {
-        const res = await query(`
-          SELECT * FROM orders 
-          WHERE status = 'Ready' AND delivery_partner_id IS NULL AND order_type = 'delivery'
-          ORDER BY created_at DESC
-        `);
-        if (res && res.rows) {
-          return res.rows.map(rowToOrder);
-        }
-      } catch (e) {
-        console.error('[OrderService] Error fetching available delivery orders from Neon DB:', e.message);
-      }
-    }
-    return this.orders.filter(
-      (o) => o.status === 'Ready' && !o.deliveryPartnerId && o.orderType === 'delivery'
-    );
-  }
-
-  /** Admin: assign a delivery partner to an order */
-  async assignDeliveryPartner(orderId, partnerId, partnerName, partnerPhone) {
-    const cleanId = (orderId || '').trim().toUpperCase();
-    let dbUpdated = null;
-    if (isDbConnected()) {
-      try {
-        const res = await query(`
-          UPDATE orders 
-          SET delivery_partner_id = $1, delivery_partner_name = $2, delivery_partner_phone = $3, updated_at = CURRENT_TIMESTAMP
-          WHERE UPPER(id) = UPPER($4)
-          RETURNING *
-        `, [partnerId, partnerName, partnerPhone, cleanId]);
-        if (res && res.rows && res.rows.length > 0) {
-          dbUpdated = rowToOrder(res.rows[0]);
-        }
-      } catch (e) {
-        console.error('[OrderService] Error assigning partner in Neon DB:', e.message);
-      }
-    }
-
-    const orderIndex = this.orders.findIndex((o) => (o.id || '').toUpperCase() === cleanId);
-    if (orderIndex !== -1) {
-      this.orders[orderIndex].deliveryPartnerId = partnerId;
-      this.orders[orderIndex].deliveryPartnerName = partnerName;
-      this.orders[orderIndex].deliveryPartnerPhone = partnerPhone;
-      this.orders[orderIndex].updatedAt = new Date().toISOString();
-      this._persist();
-      return dbUpdated || this.orders[orderIndex];
-    } else if (dbUpdated) {
-      this.orders.unshift(dbUpdated);
-      this._persist();
-      return dbUpdated;
-    }
-    return dbUpdated || null;
-  }
-
-  /** Delivery partner: accept/claim an order */
-  async acceptOrder(orderId, partnerId, partnerName, partnerPhone) {
-    if (isDbConnected()) {
-      try {
-        await query(`
-          UPDATE orders 
-          SET delivery_partner_id = $1, delivery_partner_name = $2, delivery_partner_phone = $3, status = 'Out for Delivery', updated_at = CURRENT_TIMESTAMP
-          WHERE UPPER(id) = UPPER($4) AND (delivery_partner_id IS NULL OR delivery_partner_id = $1)
-        `, [partnerId, partnerName, partnerPhone, orderId]);
-      } catch (e) {
-        console.error('[OrderService] Error accepting order in Neon DB:', e.message);
-      }
-    }
-
-    const order = this.orders.find((o) => (o.id || '').toUpperCase() === (orderId || '').toUpperCase());
-    if (!order) return null;
-    if (order.deliveryPartnerId && order.deliveryPartnerId !== partnerId) return null; // already taken
-    order.deliveryPartnerId = partnerId;
-    order.deliveryPartnerName = partnerName;
-    order.deliveryPartnerPhone = partnerPhone;
-    order.status = 'Out for Delivery';
-    order.updatedAt = new Date().toISOString();
-    this._persist();
-    return order;
-  }
-
-  /** Delivery partner: mark an order as delivered */
-  async markDelivered(orderId, partnerId) {
-    if (isDbConnected()) {
-      try {
-        await query(`
-          UPDATE orders 
-          SET status = 'Delivered', delivered_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-          WHERE UPPER(id) = UPPER($1) AND delivery_partner_id = $2
-        `, [orderId, partnerId]);
-      } catch (e) {
-        console.error('[OrderService] Error marking delivered in Neon DB:', e.message);
-      }
-    }
-
-    const order = this.orders.find((o) => (o.id || '').toUpperCase() === (orderId || '').toUpperCase());
-    if (!order) return null;
-    if (order.deliveryPartnerId !== partnerId) return null; // not your order
-    order.status = 'Delivered';
-    order.deliveredAt = new Date().toISOString();
-    order.updatedAt = new Date().toISOString();
-    this._persist();
-    return order;
   }
 
   async updateOrderStatus(id, status) {
@@ -399,18 +262,14 @@ class OrderService {
     const pendingEnquiries = allOrders.filter((o) => ['Enquiry Received', 'Order Received', 'Pending'].includes(o.status)).length;
     const processingOrders = allOrders.filter((o) => o.status === 'Processing').length;
     const confirmedOrders = allOrders.filter((o) => ['Confirmed', 'Completed', 'Delivered'].includes(o.status)).length;
-    const outForDelivery = allOrders.filter((o) => o.status === 'Out for Delivery').length;
     const totalPortions = allOrders.reduce((sum, o) => sum + (Number(o.quantity) || 0), 0);
-    const deliveryOrders = allOrders.filter((o) => o.orderType === 'delivery').length;
 
     return {
       totalOrders,
       pendingEnquiries,
       processingOrders,
       confirmedOrders,
-      outForDelivery,
-      totalPortions,
-      deliveryOrders
+      totalPortions
     };
   }
 }
