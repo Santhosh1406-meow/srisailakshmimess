@@ -8,7 +8,7 @@ const SIVAKASI_LOCALITIES = [
   'sivakasi', 'thiruthangal', 'satchiyapuram', 'vilampatti', 'paraipatti',
   'viswanatham', 'anaiyur', 'meenampatti', 'palayampatti', 'chinnakamanpatti',
   'maraneri', 'pappakudi', 'reserve line', 'housing board', 'ngo colony',
-  'rathanavillas', 'coronation', 'badrakali', 'velayutham', 'bus stand'
+  'rathanavillas', 'coronation', 'badrakali', 'velayutham', 'bus stand', 'narnapuram'
 ];
 
 const OTHER_CITIES = [
