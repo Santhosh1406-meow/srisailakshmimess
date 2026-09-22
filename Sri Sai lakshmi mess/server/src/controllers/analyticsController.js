@@ -15,6 +15,23 @@ exports.getProfitLoss = async (req, res, next) => {
 };
 
 /**
+ * POST /api/analytics/profit-loss/reset
+ * Resets Profit & Loss data and recorded expenses in Neon PostgreSQL
+ */
+exports.resetProfitLoss = async (req, res, next) => {
+  try {
+    const data = await analyticsService.resetProfitLossData();
+    return res.status(200).json({
+      success: true,
+      message: 'Profit & Loss data reset successfully in database.',
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * GET /api/analytics/ai-insights
  * Generates automated AI financial audit, strengths, margin leakages & recommendations
  */

@@ -6,6 +6,9 @@ const { protect, adminOnly, optionalAuth } = require('../middleware/authMiddlewa
 // GET /api/analytics/profit-loss — Get profit & loss time-series bar chart data and KPIs
 router.get('/profit-loss', optionalAuth, analyticsController.getProfitLoss);
 
+// POST /api/analytics/profit-loss/reset — Reset Profit & Loss and expense data in database
+router.post('/profit-loss/reset', optionalAuth, analyticsController.resetProfitLoss);
+
 // GET /api/analytics/ai-insights — Automated AI financial analysis & recommendations
 router.get('/ai-insights', optionalAuth, analyticsController.getAiInsights);
 

@@ -483,55 +483,54 @@ export const fetchProfitLossData = async (timeframe = '6months') => {
     });
     return json.data;
   } catch (error) {
-    console.info('[Analytics API] Live server unavailable, computing local realistic P&L metrics:', error.message);
+    console.info('[Analytics API] Live server unavailable, computing local P&L metrics:', error.message);
     const localOrders = getLocalOrders().filter((o) => !o.id.startsWith('ORD-DEMO-'));
     const orderSum = localOrders.reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
+    const now = new Date();
+    const curMonth = now.toLocaleString('en-US', { month: 'short' });
+    const curMonthFull = now.toLocaleString('en-US', { month: 'long' });
     return {
       timeframe,
       kpis: {
-        totalRevenue: 185000 + orderSum,
-        totalExpenses: 118000,
-        netProfit: 67000 + orderSum,
-        profitMargin: Number((((67000 + orderSum) / (185000 + orderSum)) * 100).toFixed(1)),
-        totalOrders: 460 + localOrders.length,
-        avgOrderValue: Math.round((185000 + orderSum) / (460 + (localOrders.length || 1))),
-        breakEvenDaily: 3933,
-        growthVsLastMonth: '+7.2%'
+        totalRevenue: orderSum,
+        totalExpenses: 0,
+        netProfit: orderSum,
+        profitMargin: orderSum > 0 ? 100 : 0,
+        totalOrders: localOrders.length,
+        avgOrderValue: localOrders.length > 0 ? Math.round(orderSum / localOrders.length) : 0,
+        breakEvenDaily: 0,
+        growthVsLastMonth: '+0.0%',
+        dbBacked: false
       },
       monthlyData: [
-        { period: 'Apr', fullName: 'April', revenue: 142000, expenses: 98000, netProfit: 44000, marginPercent: 31.0, isProfitable: true },
-        { period: 'May', fullName: 'May', revenue: 156000, expenses: 104500, netProfit: 51500, marginPercent: 33.0, isProfitable: true },
-        { period: 'Jun', fullName: 'June', revenue: 148500, expenses: 101200, netProfit: 47300, marginPercent: 31.9, isProfitable: true },
-        { period: 'Jul', fullName: 'July', revenue: 164000, expenses: 109000, netProfit: 55000, marginPercent: 33.5, isProfitable: true },
-        { period: 'Aug', fullName: 'August', revenue: 172500, expenses: 112000, netProfit: 60500, marginPercent: 35.1, isProfitable: true },
-        { period: 'Sep', fullName: 'September', revenue: 185000 + orderSum, expenses: 118000, netProfit: 67000 + orderSum, marginPercent: 36.2, isProfitable: true }
+        { period: curMonth, fullName: curMonthFull, revenue: orderSum, expenses: 0, netProfit: orderSum, marginPercent: orderSum > 0 ? 100 : 0, isProfitable: true }
       ],
       weeklyData: [
-        { period: 'Mon', revenue: 5800, expenses: 3900, netProfit: 1900, marginPercent: 32.8, isProfitable: true },
-        { period: 'Tue', revenue: 6200, expenses: 4100, netProfit: 2100, marginPercent: 33.9, isProfitable: true },
-        { period: 'Wed', revenue: 6400, expenses: 4050, netProfit: 2350, marginPercent: 36.7, isProfitable: true },
-        { period: 'Thu', revenue: 5900, expenses: 3950, netProfit: 1950, marginPercent: 33.1, isProfitable: true },
-        { period: 'Fri', revenue: 7800, expenses: 4900, netProfit: 2900, marginPercent: 37.2, isProfitable: true },
-        { period: 'Sat', revenue: 9500, expenses: 5800, netProfit: 3700, marginPercent: 38.9, isProfitable: true },
-        { period: 'Sun', revenue: 11200 + Math.round(orderSum * 0.4), expenses: 6400, netProfit: 4800 + Math.round(orderSum * 0.4), marginPercent: 42.9, isProfitable: true }
+        { period: 'Mon', revenue: 0, expenses: 0, netProfit: 0, marginPercent: 0, isProfitable: true },
+        { period: 'Tue', revenue: orderSum, expenses: 0, netProfit: orderSum, marginPercent: orderSum > 0 ? 100 : 0, isProfitable: true },
+        { period: 'Wed', revenue: 0, expenses: 0, netProfit: 0, marginPercent: 0, isProfitable: true },
+        { period: 'Thu', revenue: 0, expenses: 0, netProfit: 0, marginPercent: 0, isProfitable: true },
+        { period: 'Fri', revenue: 0, expenses: 0, netProfit: 0, marginPercent: 0, isProfitable: true },
+        { period: 'Sat', revenue: 0, expenses: 0, netProfit: 0, marginPercent: 0, isProfitable: true },
+        { period: 'Sun', revenue: 0, expenses: 0, netProfit: 0, marginPercent: 0, isProfitable: true }
       ],
       categoryData: [
-        { category: 'Breakfast (Tiffin)', revenue: 62000, cost: 34500, grossMargin: 44.4, share: 33 },
-        { category: 'Meals (Lunch)', revenue: 74000, cost: 44000, grossMargin: 40.5, share: 40 },
-        { category: 'Dinner (Dosa/Parotta)', revenue: 36000, cost: 23500, grossMargin: 34.7, share: 20 },
-        { category: 'Snacks & Beverages', revenue: 13000, cost: 5500, grossMargin: 57.7, share: 7 }
+        { category: 'Meals (Lunch)', revenue: Math.round(orderSum * 0.5), cost: Math.round(orderSum * 0.25), grossMargin: 50.0, share: 50 },
+        { category: 'Breakfast (Tiffin)', revenue: Math.round(orderSum * 0.3), cost: Math.round(orderSum * 0.12), grossMargin: 60.0, share: 30 },
+        { category: 'Dinner (Dosa/Parotta)', revenue: Math.round(orderSum * 0.2), cost: Math.round(orderSum * 0.08), grossMargin: 60.0, share: 20 }
       ],
-      expenseBreakdown: [
-        { category: 'Raw Materials & Groceries', amount: 56500, percent: 47.9, color: '#ea580c' },
-        { category: 'Staff Wages & Cook', amount: 26000, percent: 22.0, color: '#3b82f6' },
-        { category: 'Utilities, LPG & Power', amount: 14500, percent: 12.3, color: '#f59e0b' },
-        { category: 'Premises Shop Rent', amount: 12000, percent: 10.2, color: '#8b5cf6' },
-        { category: 'Packaging & Disposables', amount: 6200, percent: 5.3, color: '#10b981' },
-        { category: 'Maintenance & Misc', amount: 2800, percent: 2.3, color: '#64748b' }
-      ],
+      expenseBreakdown: [],
       recentExpenses: []
     };
   }
+};
+
+export const resetProfitLossData = async () => {
+  const json = await safeFetchJson(`${API_BASE_URL}/analytics/profit-loss/reset`, {
+    method: 'POST',
+    headers: { ...getAuthHeader() }
+  });
+  return json.data;
 };
 
 export const fetchAiInsights = async () => {

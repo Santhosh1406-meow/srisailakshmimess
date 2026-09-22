@@ -493,10 +493,59 @@ export default function Admin() {
   // ────────────────────────────────────────────────────────────────────────────
   // ADMIN PORTAL
   // ────────────────────────────────────────────────────────────────────────────
-  const CARD = { backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '14px', padding: '1.25rem', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' };
-  const BTN_DANGER = { background: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', padding: '0.4rem 0.75rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' };
-  const BTN_PRIMARY = { background: 'linear-gradient(135deg,#ea580c,#dc2626)', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' };
-  const BTN_BLUE = { background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)', color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' };
+  const CARD = {
+    backgroundColor: '#0f172a',
+    background: 'linear-gradient(145deg, rgba(20, 28, 48, 0.85), rgba(12, 18, 32, 0.95))',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '16px',
+    padding: '1.35rem',
+    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.45)',
+    backdropFilter: 'blur(12px)'
+  };
+  const BTN_DANGER = {
+    background: 'rgba(244, 63, 94, 0.12)',
+    color: '#fb7185',
+    border: '1px solid rgba(244, 63, 94, 0.3)',
+    padding: '0.45rem 0.85rem',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontSize: '0.8rem',
+    fontWeight: '700',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.35rem',
+    transition: 'all 0.2s'
+  };
+  const BTN_PRIMARY = {
+    background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
+    color: '#ffffff',
+    border: 'none',
+    padding: '0.45rem 0.95rem',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontSize: '0.82rem',
+    fontWeight: '700',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.35rem',
+    boxShadow: '0 4px 14px rgba(234, 88, 12, 0.35)',
+    transition: 'all 0.2s'
+  };
+  const BTN_BLUE = {
+    background: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)',
+    color: '#ffffff',
+    border: 'none',
+    padding: '0.45rem 0.95rem',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontSize: '0.82rem',
+    fontWeight: '700',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.35rem',
+    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)',
+    transition: 'all 0.2s'
+  };
 
   const pendingOrdersCount = orders.filter(o => ['Order Received', 'Enquiry Received', 'Pending'].includes(o.status)).length;
   const confirmedCount = orders.filter(o => ['Confirmed', 'Delivered', 'Completed'].includes(o.status)).length;
@@ -510,15 +559,15 @@ export default function Admin() {
           label: 'Orders & Bookings',
           icon: <Package size={18} />,
           badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} pending` : `${orders.length}`,
-          badgeBg: pendingOrdersCount > 0 ? '#ea580c' : 'rgba(255,255,255,0.08)',
+          badgeBg: pendingOrdersCount > 0 ? 'linear-gradient(135deg, #f59e0b, #ea580c)' : 'rgba(255,255,255,0.08)',
           badgeColor: '#ffffff',
-          color: '#ea580c'
+          color: '#f59e0b'
         },
         {
           id: 'analytics',
           label: 'Profit & Loss (AI)',
           icon: <BrainCircuit size={18} />,
-          badge: 'AI Insights',
+          badge: 'DB Synced',
           badgeBg: 'linear-gradient(135deg, #0284c7, #06b6d4)',
           badgeColor: '#ffffff',
           color: '#06b6d4',
@@ -579,8 +628,8 @@ export default function Admin() {
       <style>{`
         .admin-sidebar {
           width: 275px;
-          background: #0f172a;
-          border-right: 1px solid #1e293b;
+          background: linear-gradient(180deg, #0d1424 0%, #070a14 100%);
+          border-right: 1px solid rgba(255, 255, 255, 0.08);
           display: flex;
           flex-direction: column;
           flex-shrink: 0;
@@ -597,7 +646,7 @@ export default function Admin() {
           display: flex;
           flex-direction: column;
           min-height: 100vh;
-          background: #090d16;
+          background: radial-gradient(circle at 10% 15%, rgba(245, 158, 11, 0.04) 0%, transparent 45%), radial-gradient(circle at 90% 85%, rgba(16, 185, 129, 0.04) 0%, transparent 45%), #080c16;
         }
         .admin-nav-btn {
           display: flex;
@@ -605,29 +654,30 @@ export default function Admin() {
           justify-content: space-between;
           width: 100%;
           padding: 0.72rem 0.85rem;
-          border-radius: 10px;
+          border-radius: 12px;
           border: 1px solid transparent;
           background: transparent;
           color: #94a3b8;
           font-size: 0.86rem;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.18s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           text-align: left;
         }
         .admin-nav-btn:hover {
-          background: rgba(30, 41, 59, 0.7);
+          background: rgba(30, 41, 59, 0.6);
           color: #ffffff;
+          transform: translateX(2px);
         }
         .admin-nav-btn.active {
           background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
           color: #ffffff;
-          border-color: rgba(234, 88, 12, 0.4);
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+          border-color: rgba(245, 158, 11, 0.45);
+          box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4), 0 0 15px rgba(245, 158, 11, 0.12);
         }
         .admin-nav-btn.active.is-ai {
-          border-color: rgba(6, 182, 212, 0.5);
-          box-shadow: 0 0 16px rgba(6, 182, 212, 0.2);
+          border-color: rgba(6, 182, 212, 0.55);
+          box-shadow: 0 0 20px rgba(6, 182, 212, 0.22);
         }
         .admin-mobile-overlay {
           display: none;
@@ -797,13 +847,13 @@ export default function Admin() {
       {/* ── Main Content Area ── */}
       <main className="admin-main">
         {/* Top Navbar */}
-        <div style={{ padding: '0.9rem 1.75rem', borderBottom: '1px solid #1e293b', backgroundColor: '#0f172a', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', position: 'sticky', top: 0, zIndex: 90 }}>
+        <div style={{ padding: '0.9rem 1.75rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(13, 20, 36, 0.85)', backdropFilter: 'blur(12px)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', position: 'sticky', top: 0, zIndex: 90 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
               className="admin-hamburger-btn"
-              style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', width: '38px', height: '38px', borderRadius: '8px', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              style={{ background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#cbd5e1', width: '38px', height: '38px', borderRadius: '8px', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
               <Menu size={18} />
             </button>
@@ -811,11 +861,11 @@ export default function Admin() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: '#94a3b8' }}>
                 <span>Console</span>
                 <ChevronRight size={12} />
-                <span style={{ color: activeTab === 'analytics' ? '#38bdf8' : '#ea580c', fontWeight: '700' }}>
+                <span style={{ color: activeTab === 'analytics' ? '#38bdf8' : '#f59e0b', fontWeight: '700' }}>
                   {activeTab === 'enquiries' ? 'Orders' : activeTab === 'analytics' ? 'P&L Analytics (AI)' : activeTab === 'menu' ? 'Menu' : activeTab === 'offers' ? 'Offers' : 'Customers'}
                 </span>
               </div>
-              <h1 style={{ margin: '0.15rem 0 0 0', fontSize: '1.35rem', fontWeight: '800', color: '#ffffff' }}>
+              <h1 style={{ margin: '0.15rem 0 0 0', fontSize: '1.35rem', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.02em' }}>
                 {headerInfo.title}
               </h1>
             </div>
@@ -827,11 +877,12 @@ export default function Admin() {
               onClick={() => setSoundMuted(!soundMuted)}
               title={soundMuted ? "Unmute Order Notification Sound" : "Mute Order Notification Sound"}
               style={{
-                backgroundColor: soundMuted ? '#451a03' : '#052e16',
+                backgroundColor: soundMuted ? 'rgba(154, 52, 18, 0.25)' : 'rgba(22, 101, 52, 0.25)',
                 color: soundMuted ? '#fdba74' : '#86efac',
-                border: `1px solid ${soundMuted ? '#9a3412' : '#166534'}`,
-                padding: '0.5rem 0.85rem', borderRadius: '8px', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.82rem', fontWeight: '600'
+                border: `1px solid ${soundMuted ? 'rgba(154, 52, 18, 0.5)' : 'rgba(22, 101, 52, 0.5)'}`,
+                padding: '0.5rem 0.85rem', borderRadius: '10px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.82rem', fontWeight: '600',
+                transition: 'all 0.2s'
               }}
             >
               {soundMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
@@ -842,9 +893,10 @@ export default function Admin() {
               onClick={loadAdminData}
               disabled={refreshing}
               style={{
-                backgroundColor: '#1e293b', color: '#cbd5e1', border: '1px solid #334155',
-                padding: '0.5rem 0.95rem', borderRadius: '8px', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.82rem', fontWeight: '600'
+                backgroundColor: 'rgba(30, 41, 59, 0.8)', color: '#cbd5e1', border: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: '0.5rem 0.95rem', borderRadius: '10px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.82rem', fontWeight: '600',
+                transition: 'all 0.2s'
               }}
             >
               <RefreshCw size={14} className={refreshing ? 'spin-slow' : ''} />
@@ -857,9 +909,9 @@ export default function Admin() {
         {newOrderToast && (
           <div style={{
             margin: '1.25rem 1.75rem 0',
-            backgroundColor: '#064e3b',
+            backgroundColor: 'rgba(6, 78, 59, 0.9)',
             border: '2px solid #10b981',
-            borderRadius: '12px',
+            borderRadius: '14px',
             padding: '0.9rem 1.25rem',
             display: 'flex',
             flexWrap: 'wrap',
@@ -867,20 +919,22 @@ export default function Admin() {
             justifyContent: 'space-between',
             gap: '1rem',
             color: '#ffffff',
-            boxShadow: '0 6px 20px rgba(16,185,129,0.35)'
+            boxShadow: '0 8px 24px rgba(16,185,129,0.35)',
+            backdropFilter: 'blur(8px)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
               <div style={{
                 width: '42px', height: '42px', borderRadius: '50%',
                 backgroundColor: '#10b981', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', color: '#064e3b', flexShrink: 0
+                justifyContent: 'center', color: '#064e3b', flexShrink: 0,
+                boxShadow: '0 0 12px rgba(16, 185, 129, 0.5)'
               }}>
                 <Bell size={22} />
               </div>
               <div>
                 <div style={{ fontWeight: '800', fontSize: '1.05rem', color: '#a7f3d0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span>🔔 New Customer Order Received!</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', backgroundColor: '#022c22', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>#{newOrderToast.id}</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', backgroundColor: 'rgba(2, 44, 34, 0.8)', padding: '0.15rem 0.45rem', borderRadius: '6px' }}>#{newOrderToast.id}</span>
                 </div>
                 <div style={{ fontSize: '0.85rem', color: '#e2e8f0', marginTop: '0.2rem' }}>
                   <strong>{newOrderToast.customerName}</strong> ({newOrderToast.phone}) • {newOrderToast.foodItem} • <span style={{ color: '#34d399', fontWeight: '800' }}>₹{newOrderToast.amount}</span>
@@ -896,10 +950,10 @@ export default function Admin() {
                   setNewOrderToast(null);
                 }}
                 style={{
-                  backgroundColor: '#10b981', color: '#022c22', border: 'none',
-                  padding: '0.55rem 1.15rem', borderRadius: '8px', fontWeight: '800',
+                  background: 'linear-gradient(135deg, #10b981, #059669)', color: '#ffffff', border: 'none',
+                  padding: '0.55rem 1.15rem', borderRadius: '10px', fontWeight: '800',
                   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
                 }}
               >
                 <CheckCircle2 size={16} /> Accept Order
@@ -919,24 +973,27 @@ export default function Admin() {
           </div>
         )}
 
-        {/* Dynamic Page Container */}
-        <div style={{ padding: '1.75rem', maxWidth: '1440px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+        {/* Dynamic Body Content */}
+        <div style={{ padding: '1.5rem 1.75rem', flex: 1, minWidth: 0 }}>
 
           {/* Quick Contextual Stats Row for Orders Tab */}
           {activeTab === 'enquiries' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
               {[
-                { label: 'Total Orders', value: stats ? stats.totalOrders : orders.length, icon: <Package size={18} style={{ color: '#ea580c' }} />, color: '#ffffff', sub: 'All bookings' },
-                { label: 'Pending Action', value: pendingOrdersCount, icon: <Clock size={18} style={{ color: '#f59e0b' }} />, color: '#f59e0b', sub: 'Awaiting response' },
-                { label: 'Confirmed & Done', value: confirmedCount, icon: <CheckCircle2 size={18} style={{ color: '#22c55e' }} />, color: '#22c55e', sub: 'Processed or delivered' },
-                { label: 'Active Menu Dishes', value: menuItems.length, icon: <UtensilsCrossed size={18} style={{ color: '#38bdf8' }} />, color: '#38bdf8', sub: 'Live menu' }
+                { label: 'Total Orders', value: stats ? stats.totalOrders : orders.length, icon: <Package size={18} style={{ color: '#f59e0b' }} />, color: '#ffffff', sub: 'All bookings', border: '#f59e0b', iconBg: 'rgba(245,158,11,0.15)' },
+                { label: 'Pending Action', value: pendingOrdersCount, icon: <Clock size={18} style={{ color: '#ea580c' }} />, color: '#f59e0b', sub: 'Awaiting response', border: '#ea580c', iconBg: 'rgba(234,88,12,0.15)' },
+                { label: 'Confirmed & Done', value: confirmedCount, icon: <CheckCircle2 size={18} style={{ color: '#10b981' }} />, color: '#10b981', sub: 'Processed or delivered', border: '#10b981', iconBg: 'rgba(16,185,129,0.15)' },
+                { label: 'Active Menu Dishes', value: menuItems.length, icon: <UtensilsCrossed size={18} style={{ color: '#38bdf8' }} />, color: '#38bdf8', sub: 'Live menu catalog', border: '#06b6d4', iconBg: 'rgba(6,182,212,0.15)' }
               ].map((st, i) => (
-                <div key={i} style={CARD}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.78rem', fontWeight: '600', marginBottom: '0.4rem' }}>
-                    <span>{st.label}</span>{st.icon}
+                <div key={i} style={{ ...CARD, borderLeft: `4px solid ${st.border}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                    <span>{st.label}</span>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: st.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {st.icon}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '1.75rem', fontWeight: '800', color: st.color }}>{st.value}</div>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.2rem' }}>{st.sub}</div>
+                  <div style={{ fontSize: '1.9rem', fontWeight: '800', color: st.color, letterSpacing: '-0.02em' }}>{st.value}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>{st.sub}</div>
                 </div>
               ))}
             </div>

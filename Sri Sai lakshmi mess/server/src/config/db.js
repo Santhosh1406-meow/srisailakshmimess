@@ -126,6 +126,38 @@ async function initDb() {
       );
     `);
 
+    // 5. Create expenses table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS expenses (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(200) NOT NULL,
+        category VARCHAR(80) NOT NULL,
+        amount NUMERIC(12, 2) NOT NULL,
+        date DATE NOT NULL,
+        payment_method VARCHAR(50) DEFAULT 'Cash',
+        notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 6. Create profit_loss_records table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS profit_loss_records (
+        id VARCHAR(64) PRIMARY KEY,
+        period_type VARCHAR(20) NOT NULL,
+        period_label VARCHAR(60) NOT NULL,
+        revenue NUMERIC(12, 2) DEFAULT 0,
+        expenses NUMERIC(12, 2) DEFAULT 0,
+        net_profit NUMERIC(12, 2) DEFAULT 0,
+        margin_percent NUMERIC(5, 2) DEFAULT 0,
+        orders_count INT DEFAULT 0,
+        notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     // Auto-seed initial admin user if not exists
     const adminCheck = await client.query("SELECT id FROM users WHERE email = 'admin@srisailakshmimess.com' LIMIT 1");
     if (adminCheck.rows.length === 0) {

@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import BarChart from './BarChart';
 import {
   fetchProfitLossData, fetchAiInsights, askAiAdvisor,
-  fetchExpenses, createExpense, deleteExpense
+  fetchExpenses, createExpense, deleteExpense, resetProfitLossData
 } from '../../services/api';
 import {
   TrendingUp, TrendingDown, DollarSign, BrainCircuit, Sparkles,
   RefreshCw, Plus, Trash2, Calendar, PieChart, ShieldAlert,
   CheckCircle2, ArrowUpRight, ArrowDownRight, Coffee, Utensils,
-  Lightbulb, HelpCircle, Send, X, AlertTriangle, Layers, Award
+  Lightbulb, HelpCircle, Send, X, AlertTriangle, Layers, Award,
+  RotateCcw, Database
 } from 'lucide-react';
 
 export default function ProfitLossAnalytics() {
@@ -36,6 +37,11 @@ export default function ProfitLossAnalytics() {
   });
   const [expenseSubmitting, setExpenseSubmitting] = useState(false);
   const [expenseError, setExpenseError] = useState('');
+
+  // Reset P&L Modal & state
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetSuccessMsg, setResetSuccessMsg] = useState('');
 
   const loadAllAnalytics = async () => {
     try {
@@ -126,12 +132,30 @@ export default function ProfitLossAnalytics() {
     }
   };
 
+  const handleResetProfitLoss = async () => {
+    try {
+      setResetting(true);
+      setResetSuccessMsg('');
+      await resetProfitLossData();
+      await loadAllAnalytics();
+      setShowResetModal(false);
+      setResetSuccessMsg('Profit & Loss and expenses data reset successfully in database!');
+      setTimeout(() => setResetSuccessMsg(''), 6000);
+    } catch (err) {
+      alert('Failed to reset P&L data: ' + err.message);
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const CARD_STYLE = {
-    backgroundColor: '#1e293b',
-    border: '1px solid #334155',
+    backgroundColor: '#121b2f',
+    background: 'linear-gradient(145deg, rgba(22, 32, 54, 0.85), rgba(13, 20, 36, 0.95))',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
     borderRadius: '16px',
     padding: '1.5rem',
-    boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.25)'
+    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.45)',
+    backdropFilter: 'blur(10px)'
   };
 
   if (loading && !data) {
@@ -145,25 +169,32 @@ export default function ProfitLossAnalytics() {
   }
 
   const kpis = data?.kpis || {
-    totalRevenue: 185000,
-    totalExpenses: 118000,
-    netProfit: 67000,
-    profitMargin: 36.2,
-    totalOrders: 480,
-    avgOrderValue: 240,
-    breakEvenDaily: 3933
+    totalRevenue: 0,
+    totalExpenses: 0,
+    netProfit: 0,
+    profitMargin: 0,
+    totalOrders: 0,
+    avgOrderValue: 0,
+    breakEvenDaily: 0
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {/* ── Top Header & Actions ── */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', borderBottom: '1px solid #334155', paddingBottom: '1.25rem' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '1.25rem' }}>
         <div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#38bdf8', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'rgba(56,189,248,0.1)', padding: '0.3rem 0.75rem', borderRadius: '20px', marginBottom: '0.5rem' }}>
-            <BrainCircuit size={15} />
-            <span>AI Business Intelligence & Financial Analytics</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: '#38bdf8', fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.25)', padding: '0.3rem 0.75rem', borderRadius: '20px' }}>
+              <BrainCircuit size={15} />
+              <span>AI Business Intelligence & Analytics</span>
+            </div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.3rem 0.75rem', borderRadius: '20px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399', fontSize: '0.78rem', fontWeight: '700' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block', boxShadow: '0 0 10px #10b981' }} />
+              <Database size={13} />
+              <span>Neon PostgreSQL Synced</span>
+            </div>
           </div>
-          <h2 style={{ fontSize: '1.85rem', fontWeight: '800', color: '#ffffff', margin: '0 0 0.25rem 0' }}>
+          <h2 style={{ fontSize: '1.85rem', fontWeight: '800', color: '#ffffff', margin: '0 0 0.25rem 0', letterSpacing: '-0.02em' }}>
             Profit & Loss Financial Analysis
           </h2>
           <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>
@@ -175,9 +206,30 @@ export default function ProfitLossAnalytics() {
           <button
             onClick={() => setShowExpenseModal(true)}
             style={{
-              backgroundColor: '#ea580c',
+              background: 'linear-gradient(135deg, #f59e0b, #ea580c)',
               color: '#ffffff',
               border: 'none',
+              padding: '0.6rem 1.15rem',
+              borderRadius: '10px',
+              fontWeight: '700',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              boxShadow: '0 4px 15px rgba(234, 88, 12, 0.35)'
+            }}
+          >
+            <Plus size={16} />
+            <span>Record Expense</span>
+          </button>
+
+          <button
+            onClick={() => setShowResetModal(true)}
+            style={{
+              backgroundColor: 'rgba(244, 63, 94, 0.12)',
+              color: '#fb7185',
+              border: '1px solid rgba(244, 63, 94, 0.35)',
               padding: '0.6rem 1.1rem',
               borderRadius: '10px',
               fontWeight: '700',
@@ -186,18 +238,20 @@ export default function ProfitLossAnalytics() {
               display: 'flex',
               alignItems: 'center',
               gap: '0.45rem',
-              boxShadow: '0 4px 12px rgba(234, 88, 12, 0.3)'
+              transition: 'all 0.2s'
             }}
+            title="Reset P&L and expenses data in database"
           >
-            <Plus size={16} />
-            <span>Record Expense</span>
+            <RotateCcw size={15} />
+            <span>Reset P&L Data</span>
           </button>
+
           <button
             onClick={loadAllAnalytics}
             style={{
-              backgroundColor: '#0f172a',
+              backgroundColor: 'rgba(30, 41, 59, 0.8)',
               color: '#cbd5e1',
-              border: '1px solid #475569',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
               padding: '0.6rem 1rem',
               borderRadius: '10px',
               fontWeight: '600',
@@ -213,6 +267,26 @@ export default function ProfitLossAnalytics() {
           </button>
         </div>
       </div>
+
+      {/* ── Success Toast Alert on Reset ── */}
+      {resetSuccessMsg && (
+        <div style={{
+          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+          border: '1px solid #10b981',
+          color: '#a7f3d0',
+          padding: '0.85rem 1.25rem',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.65rem',
+          fontWeight: '600',
+          fontSize: '0.9rem',
+          boxShadow: '0 4px 15px rgba(16,185,129,0.2)'
+        }}>
+          <CheckCircle2 size={18} style={{ color: '#10b981', flexShrink: 0 }} />
+          <span>{resetSuccessMsg}</span>
+        </div>
+      )}
 
       {/* ── Key Financial KPI Cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
@@ -984,6 +1058,77 @@ export default function ProfitLossAnalytics() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reset P&L Confirmation Modal ── */}
+      {showResetModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          backgroundColor: 'rgba(3, 7, 18, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div style={{
+            maxWidth: '460px', width: '100%',
+            backgroundColor: '#0f172a',
+            background: 'linear-gradient(145deg, #131c2e, #0c1220)',
+            border: '1px solid rgba(244, 63, 94, 0.4)',
+            borderRadius: '18px', padding: '2rem',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.7), 0 0 30px rgba(244,63,94,0.15)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{
+                width: '46px', height: '46px', borderRadius: '12px',
+                backgroundColor: 'rgba(244, 63, 94, 0.15)', color: '#fb7185',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              }}>
+                <ShieldAlert size={24} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: '#ffffff', fontSize: '1.25rem', fontWeight: '800' }}>
+                  Reset Profit & Loss Data?
+                </h3>
+                <p style={{ margin: '0.2rem 0 0 0', color: '#94a3b8', fontSize: '0.8rem' }}>
+                  Neon PostgreSQL Database Sync
+                </p>
+              </div>
+            </div>
+
+            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+              This will wipe recorded expenses and reset the Profit & Loss records in your <strong>Neon PostgreSQL database</strong>. Future metrics will be calculated cleanly from live verified orders.
+            </p>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                disabled={resetting}
+                onClick={() => setShowResetModal(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                  color: '#cbd5e1', padding: '0.65rem 1.15rem', borderRadius: '10px',
+                  fontWeight: '600', cursor: 'pointer', fontSize: '0.88rem'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={resetting}
+                onClick={handleResetProfitLoss}
+                style={{
+                  background: 'linear-gradient(135deg, #f43f5e, #dc2626)',
+                  border: 'none', color: '#ffffff', padding: '0.65rem 1.25rem', borderRadius: '10px',
+                  fontWeight: '700', cursor: 'pointer', fontSize: '0.88rem',
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  boxShadow: '0 4px 15px rgba(244, 63, 94, 0.35)'
+                }}
+              >
+                {resetting ? <RefreshCw size={16} className="spin-slow" /> : <RotateCcw size={16} />}
+                <span>{resetting ? 'Resetting Database...' : 'Yes, Reset Data'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
