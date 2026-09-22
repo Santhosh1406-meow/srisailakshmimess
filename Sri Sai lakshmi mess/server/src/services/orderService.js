@@ -171,10 +171,19 @@ class OrderService {
     return this.orders.filter((o) => (o.phone || '').replace(/\D/g, '').slice(-10) === cleaned);
   }
 
-  async getOrdersByUserId(userId) {
+  async getOrdersByUserId(userId, email = null, phone = null) {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
+
     if (isDbConnected()) {
       try {
-        const res = await query('SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
+        const res = await query(`
+          SELECT * FROM orders 
+          WHERE (user_id IS NOT NULL AND user_id = $1)
+             OR ($2::text <> '' AND LOWER(COALESCE(email, '')) = $2)
+             OR ($3::text <> '' AND RIGHT(REGEXP_REPLACE(COALESCE(phone, ''), '\\D', '', 'g'), 10) = $3)
+          ORDER BY created_at DESC
+        `, [userId || null, cleanEmail, cleanPhone]);
         if (res && res.rows) {
           return res.rows.map(rowToOrder);
         }
@@ -182,7 +191,12 @@ class OrderService {
         console.error('[OrderService] Error fetching orders by userId from Neon DB:', e.message);
       }
     }
-    return this.orders.filter((o) => o.userId === userId);
+    return this.orders.filter((o) => {
+      if (userId && o.userId === userId) return true;
+      if (cleanEmail && (o.email || '').trim().toLowerCase() === cleanEmail) return true;
+      if (cleanPhone && (o.phone || '').replace(/\D/g, '').slice(-10) === cleanPhone) return true;
+      return false;
+    });
   }
 
   async updateOrderStatus(id, status) {

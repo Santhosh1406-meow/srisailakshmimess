@@ -122,6 +122,13 @@ export const submitOrderEnquiry = async (orderPayload) => {
     saveLocalOrders(orders);
   }
 
+  // Broadcast to other tabs (e.g. Admin portal)
+  try {
+    const bc = new BroadcastChannel('ssl_mess_channel');
+    bc.postMessage({ type: 'NEW_ORDER_SUBMITTED', order: finalOrder });
+    bc.close();
+  } catch (_) {}
+
   return {
     success: true,
     message: 'Order placed successfully!',
@@ -223,6 +230,11 @@ export const updateOrderStatusAdmin = async (orderId, status, fallbackOrder = nu
     orders[idx].updatedAt = new Date().toISOString();
     saveLocalOrders(orders);
     try { window.dispatchEvent(new CustomEvent('ssl_order_status_updated', { detail: { orderId, status } })); } catch (_) {}
+    try {
+      const bc = new BroadcastChannel('ssl_mess_channel');
+      bc.postMessage({ type: 'ORDER_STATUS_CHANGED', orderId, status });
+      bc.close();
+    } catch (_) {}
     return serverUpdated || orders[idx];
   }
 
@@ -230,6 +242,11 @@ export const updateOrderStatusAdmin = async (orderId, status, fallbackOrder = nu
     orders.unshift(serverUpdated);
     saveLocalOrders(orders);
     try { window.dispatchEvent(new CustomEvent('ssl_order_status_updated', { detail: { orderId, status } })); } catch (_) {}
+    try {
+      const bc = new BroadcastChannel('ssl_mess_channel');
+      bc.postMessage({ type: 'ORDER_STATUS_CHANGED', orderId, status });
+      bc.close();
+    } catch (_) {}
     return serverUpdated;
   }
 

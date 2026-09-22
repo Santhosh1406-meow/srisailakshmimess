@@ -22,16 +22,26 @@ exports.register = async (req, res, next) => {
   try {
     const { name, email, phone, password } = req.body;
 
-    // Basic validation
-    const errors = [];
-    if (!name || name.trim().length < 2) errors.push('Full name must be at least 2 characters.');
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.push('Valid email address is required.');
-    if (!password || password.length < 6) errors.push('Password must be at least 6 characters.');
+    // 10-digit Indian Mobile Number validation
+    let normalizedPhone = '';
+    if (phone) {
+      const rawPhone = String(phone).replace(/\s+/g, '').replace(/[-()+]/g, '');
+      normalizedPhone = rawPhone;
+      if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+        normalizedPhone = normalizedPhone.slice(2);
+      } else if (normalizedPhone.startsWith('0') && normalizedPhone.length === 11) {
+        normalizedPhone = normalizedPhone.slice(1);
+      }
+      if (!/^[6-9]\d{9}$/.test(normalizedPhone)) {
+        errors.push('Mobile number must be a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
+      }
+    }
+
     if (errors.length > 0) {
       return res.status(400).json({ success: false, errors });
     }
 
-    const user = await userService.register({ name, email, phone, password });
+    const user = await userService.register({ name, email, phone: normalizedPhone || phone, password });
     const token = generateToken(user);
 
     return res.status(201).json({

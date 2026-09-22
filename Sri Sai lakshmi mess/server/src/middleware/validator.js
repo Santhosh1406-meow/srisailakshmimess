@@ -2,6 +2,21 @@
  * Request Validation Middleware for Order / Enquiry form
  */
 
+// Sivakasi postal codes and locality keywords
+const SIVAKASI_PINCODES = ['626123', '626124', '626130', '626189', '626128'];
+const SIVAKASI_LOCALITIES = [
+  'sivakasi', 'thiruthangal', 'satchiyapuram', 'vilampatti', 'paraipatti',
+  'viswanatham', 'anaiyur', 'meenampatti', 'palayampatti', 'chinnakamanpatti',
+  'maraneri', 'pappakudi', 'reserve line', 'housing board', 'ngo colony',
+  'rathanavillas', 'coronation', 'badrakali', 'velayutham', 'bus stand'
+];
+
+const OTHER_CITIES = [
+  'madurai', 'chennai', 'coimbatore', 'bangalore', 'bengaluru', 'trichy',
+  'tiruchirappalli', 'salem', 'tirunelveli', 'dindigul', 'erode', 'tiruppur',
+  'virudhunagar', 'rajapalayam', 'srivilliputhur', 'sattur', 'kovilpatti'
+];
+
 exports.validateOrderInput = (req, res, next) => {
   // If cart items array is provided, auto-populate foodItem and quantity if missing
   if (Array.isArray(req.body.items) && req.body.items.length > 0) {
@@ -19,6 +34,13 @@ exports.validateOrderInput = (req, res, next) => {
     }
   }
 
+  if (!req.body.preferredDate) {
+    req.body.preferredDate = new Date().toISOString().split('T')[0];
+  }
+  if (!req.body.preferredTime) {
+    req.body.preferredTime = 'Immediate (30-45 mins)';
+  }
+
   const {
     customerName,
     phone,
@@ -26,7 +48,9 @@ exports.validateOrderInput = (req, res, next) => {
     foodItem,
     quantity,
     preferredDate,
-    preferredTime
+    preferredTime,
+    orderType,
+    deliveryAddress
   } = req.body;
 
   const errors = [];
@@ -35,16 +59,52 @@ exports.validateOrderInput = (req, res, next) => {
     errors.push('Customer name is required and must be at least 2 characters.');
   }
 
-  // Mobile validation: South Indian standard 10-digit number or international with +
-  const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{7,15}$/;
-  if (!phone || !phoneRegex.test(phone.replace(/\s+/g, ''))) {
-    errors.push('A valid mobile phone number is required (e.g. 9876543210).');
+  // 10-digit Indian Mobile Number validation (starts with 6, 7, 8, 9)
+  const rawPhone = String(phone || '').replace(/\s+/g, '').replace(/[-()+]/g, '');
+  let normalizedPhone = rawPhone;
+  if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+    normalizedPhone = normalizedPhone.slice(2);
+  } else if (normalizedPhone.startsWith('0') && normalizedPhone.length === 11) {
+    normalizedPhone = normalizedPhone.slice(1);
+  }
+
+  const indianMobileRegex = /^[6-9]\d{9}$/;
+  if (!indianMobileRegex.test(normalizedPhone)) {
+    errors.push('Mobile number must be a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
+  } else {
+    // Save sanitized 10-digit number back to request body
+    req.body.phone = normalizedPhone;
   }
 
   if (email && email.trim() !== '') {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
       errors.push('Please provide a valid email address or leave it blank.');
+    }
+  }
+
+  // Strict Sivakasi-only delivery validation
+  if (orderType === 'delivery') {
+    if (!deliveryAddress || typeof deliveryAddress !== 'string' || deliveryAddress.trim().length < 5) {
+      errors.push('Delivery address inside Sivakasi is required for delivery orders.');
+    } else {
+      const lowerAddress = deliveryAddress.toLowerCase();
+
+      // Check if user specified a non-Sivakasi city
+      const hasOtherCity = OTHER_CITIES.some((city) => {
+        const regex = new RegExp(`\\b${city}\\b`, 'i');
+        return regex.test(lowerAddress);
+      });
+
+      // Check if address mentions Sivakasi localities or valid Sivakasi pincodes
+      const hasSivakasiPincode = SIVAKASI_PINCODES.some((pin) => lowerAddress.includes(pin));
+      const hasSivakasiLocality = SIVAKASI_LOCALITIES.some((loc) => lowerAddress.includes(loc));
+
+      if (hasOtherCity && !hasSivakasiLocality) {
+        errors.push('Orders are accepted inside Sivakasi only. Delivery to other cities is currently not available.');
+      } else if (!hasSivakasiPincode && !hasSivakasiLocality) {
+        errors.push('Delivery is available inside Sivakasi only (Pincodes: 626123, 626124, 626130). Please provide a Sivakasi address.');
+      }
     }
   }
 

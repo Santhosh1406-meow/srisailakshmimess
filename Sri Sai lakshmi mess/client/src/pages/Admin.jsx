@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -12,9 +12,44 @@ import {
   MessageCircle, UtensilsCrossed, TrendingUp, RefreshCw, Calendar, Filter,
   Key, Layers, XCircle, ArrowRight, Plus, Pencil, Trash2, Tag, Users,
   Star, Eye, EyeOff, ChevronDown, Save, X, BrainCircuit, BarChart3,
-  Menu, LogOut, ExternalLink, Sparkles, Home, ChevronRight
+  Menu, LogOut, ExternalLink, Sparkles, Home, ChevronRight, Bell,
+  Volume2, VolumeX
 } from 'lucide-react';
 import ProfitLossAnalytics from '../components/analytics/ProfitLossAnalytics';
+
+function playOrderNotificationSound() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    const now = ctx.currentTime;
+
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0.25, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.45);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880.0, now + 0.14);
+    gain2.gain.setValueAtTime(0.3, now + 0.14);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.14);
+    osc2.stop(now + 0.75);
+  } catch (_) {}
+}
 
 // ─── Reusable Modal Component ──────────────────────────────────────────────────
 function Modal({ title, onClose, children }) {
@@ -85,6 +120,12 @@ export default function Admin() {
   const [error, setError] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
 
+  // Live Notification state
+  const [newOrderToast, setNewOrderToast] = useState(null);
+  const [soundMuted, setSoundMuted] = useState(false);
+  const knownOrderIdsRef = useRef(new Set());
+  const isFirstLoadRef = useRef(true);
+
   // Tab & Sidebar
   const [activeTab, setActiveTab] = useState('enquiries');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -124,24 +165,40 @@ export default function Admin() {
   const isAdmin = user && user.role === 'admin';
 
   // ── Load Admin Data ──────────────────────────────────────────────────────────
-  const loadAdminData = async () => {
+  const loadAdminData = async (silent = false) => {
     if (!isAdmin) return;
     try {
-      setRefreshing(true);
+      if (!silent) setRefreshing(true);
       setError(null);
       const [ordersData, statsData, menuData] = await Promise.all([
         getAllOrdersAdmin(),
         getAdminStats(),
         fetchMenu().catch(() => [])
       ]);
+
+      if (Array.isArray(ordersData)) {
+        if (!isFirstLoadRef.current) {
+          const fresh = ordersData.filter((o) => !knownOrderIdsRef.current.has(o.id));
+          if (fresh.length > 0) {
+            const newest = fresh[0];
+            if (!soundMuted) {
+              playOrderNotificationSound();
+            }
+            setNewOrderToast(newest);
+          }
+        }
+        knownOrderIdsRef.current = new Set(ordersData.map((o) => o.id));
+        isFirstLoadRef.current = false;
+      }
+
       setOrders(ordersData || []);
       setStats(statsData || null);
       setMenuItems(menuData || []);
     } catch (err) {
-      setError(err.message || 'Failed to load admin data.');
+      if (!silent) setError(err.message || 'Failed to load admin data.');
     } finally {
+      if (!silent) setRefreshing(false);
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -168,12 +225,30 @@ export default function Admin() {
       loadAdminData();
       loadOffers();
       loadCustomers();
-      const timer = setInterval(loadAdminData, 20000);
-      return () => clearInterval(timer);
+      // Continuous fast polling every 4 seconds for live incoming orders
+      const timer = setInterval(() => loadAdminData(true), 4000);
+
+      // Listen to cross-tab broadcast channel for instant new order notification
+      let bc = null;
+      try {
+        bc = new BroadcastChannel('ssl_mess_channel');
+        bc.onmessage = (msg) => {
+          if (msg.data?.type === 'NEW_ORDER_SUBMITTED') {
+            loadAdminData(true);
+            if (!soundMuted) playOrderNotificationSound();
+            if (msg.data.order) setNewOrderToast(msg.data.order);
+          }
+        };
+      } catch (_) {}
+
+      return () => {
+        clearInterval(timer);
+        if (bc) bc.close();
+      };
     } else {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, soundMuted]);
 
   // ── Admin Login ──────────────────────────────────────────────────────────────
   const handleAdminLogin = async (e) => {
@@ -202,6 +277,12 @@ export default function Admin() {
       setUpdatingId(orderId);
       await updateOrderStatusAdmin(orderId, newStatus, targetOrder);
       try { const ns = await getAdminStats(); if (ns) setStats(ns); } catch (_) {}
+      // Broadcast to customer views across tabs
+      try {
+        const bc = new BroadcastChannel('ssl_mess_channel');
+        bc.postMessage({ type: 'ORDER_STATUS_CHANGED', orderId, status: newStatus });
+        bc.close();
+      } catch (_) {}
     } catch (err) {
       if (prevStatus) setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: prevStatus } : o)));
       alert(`Failed to update status: ${err.message}`);
@@ -742,6 +823,22 @@ export default function Admin() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <button
+              type="button"
+              onClick={() => setSoundMuted(!soundMuted)}
+              title={soundMuted ? "Unmute Order Notification Sound" : "Mute Order Notification Sound"}
+              style={{
+                backgroundColor: soundMuted ? '#451a03' : '#052e16',
+                color: soundMuted ? '#fdba74' : '#86efac',
+                border: `1px solid ${soundMuted ? '#9a3412' : '#166534'}`,
+                padding: '0.5rem 0.85rem', borderRadius: '8px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.82rem', fontWeight: '600'
+              }}
+            >
+              {soundMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+              <span>{soundMuted ? 'Sound Off' : 'Sound On'}</span>
+            </button>
+
+            <button
               onClick={loadAdminData}
               disabled={refreshing}
               style={{
@@ -755,6 +852,72 @@ export default function Admin() {
             </button>
           </div>
         </div>
+
+        {/* 🔔 New Order Alert Banner */}
+        {newOrderToast && (
+          <div style={{
+            margin: '1.25rem 1.75rem 0',
+            backgroundColor: '#064e3b',
+            border: '2px solid #10b981',
+            borderRadius: '12px',
+            padding: '0.9rem 1.25rem',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            color: '#ffffff',
+            boxShadow: '0 6px 20px rgba(16,185,129,0.35)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+              <div style={{
+                width: '42px', height: '42px', borderRadius: '50%',
+                backgroundColor: '#10b981', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', color: '#064e3b', flexShrink: 0
+              }}>
+                <Bell size={22} />
+              </div>
+              <div>
+                <div style={{ fontWeight: '800', fontSize: '1.05rem', color: '#a7f3d0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span>🔔 New Customer Order Received!</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', backgroundColor: '#022c22', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>#{newOrderToast.id}</span>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#e2e8f0', marginTop: '0.2rem' }}>
+                  <strong>{newOrderToast.customerName}</strong> ({newOrderToast.phone}) • {newOrderToast.foodItem} • <span style={{ color: '#34d399', fontWeight: '800' }}>₹{newOrderToast.amount}</span>
+                  {newOrderToast.deliveryAddress && <span> • 📍 {newOrderToast.deliveryAddress}</span>}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  handleStatusChange(newOrderToast.id, 'Confirmed', newOrderToast);
+                  setNewOrderToast(null);
+                }}
+                style={{
+                  backgroundColor: '#10b981', color: '#022c22', border: 'none',
+                  padding: '0.55rem 1.15rem', borderRadius: '8px', fontWeight: '800',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                }}
+              >
+                <CheckCircle2 size={16} /> Accept Order
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewOrderToast(null)}
+                style={{
+                  background: 'rgba(255,255,255,0.1)', border: 'none', color: '#cbd5e1',
+                  borderRadius: '6px', cursor: 'pointer', padding: '0.4rem', display: 'flex'
+                }}
+                title="Dismiss"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Dynamic Page Container */}
         <div style={{ padding: '1.75rem', maxWidth: '1440px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
@@ -841,25 +1004,53 @@ export default function Admin() {
                           <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: '600' }}>Status:</span>
                           <select value={order.status === 'Completed' ? 'Delivered' : (order.status === 'Enquiry Received' || order.status === 'Pending' ? 'Order Received' : order.status)}
                             disabled={isUpdating} onChange={(e) => handleStatusChange(order.id, e.target.value, order)}
-                            style={{ ...SELECT_STYLE, padding: '0.45rem 0.75rem', fontSize: '0.82rem', minWidth: '150px' }}>
+                            style={{ ...SELECT_STYLE, padding: '0.45rem 0.75rem', fontSize: '0.82rem', minWidth: '145px' }}>
                             <option value="Order Received">Order Received</option>
-                            <option value="Processing">Processing</option>
                             <option value="Confirmed">Confirmed</option>
+                            <option value="Processing">Processing</option>
                             <option value="Ready">Food Ready</option>
                             <option value="Out for Delivery">Out for Delivery</option>
                             <option value="Delivered">Delivered</option>
                             <option value="Cancelled">Cancelled</option>
                           </select>
-                          {order.status !== 'Processing' && order.status !== 'Delivered' && order.status !== 'Completed' && (
-                            <button type="button" onClick={() => handleStatusChange(order.id, 'Processing', order)} disabled={isUpdating}
-                              style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.4rem 0.65rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                              <RefreshCw size={11} /><span>Processing</span>
+
+                          {/* Quick Action: ACCEPT ORDER (Sets status to Confirmed) */}
+                          {(order.status === 'Order Received' || order.status === 'Enquiry Received' || order.status === 'Pending') && (
+                            <button type="button" onClick={() => handleStatusChange(order.id, 'Confirmed', order)} disabled={isUpdating}
+                              style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.85rem', fontSize: '0.78rem', fontWeight: '800', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 2px 8px rgba(22,163,74,0.35)' }}>
+                              <CheckCircle2 size={13} /><span>Accept Order</span>
                             </button>
                           )}
-                          {order.status !== 'Delivered' && order.status !== 'Completed' && (
+
+                          {/* Quick Action: START COOKING (Confirmed -> Processing) */}
+                          {order.status === 'Confirmed' && (
+                            <button type="button" onClick={() => handleStatusChange(order.id, 'Processing', order)} disabled={isUpdating}
+                              style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                              <Clock size={12} /><span>Start Cooking</span>
+                            </button>
+                          )}
+
+                          {/* Quick Action: FOOD READY (Processing -> Ready) */}
+                          {order.status === 'Processing' && (
+                            <button type="button" onClick={() => handleStatusChange(order.id, 'Ready', order)} disabled={isUpdating}
+                              style={{ background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                              <UtensilsCrossed size={12} /><span>Food Ready</span>
+                            </button>
+                          )}
+
+                          {/* Quick Action: OUT FOR DELIVERY (Ready -> Out for Delivery) */}
+                          {order.status === 'Ready' && order.orderType === 'delivery' && (
+                            <button type="button" onClick={() => handleStatusChange(order.id, 'Out for Delivery', order)} disabled={isUpdating}
+                              style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                              <Package size={12} /><span>Out for Delivery</span>
+                            </button>
+                          )}
+
+                          {/* Quick Action: DELIVERED */}
+                          {order.status !== 'Delivered' && order.status !== 'Completed' && order.status !== 'Cancelled' && (
                             <button type="button" onClick={() => handleStatusChange(order.id, 'Delivered', order)} disabled={isUpdating}
-                              style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.4rem 0.65rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                              <CheckCircle2 size={11} /><span>Delivered</span>
+                              style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                              <CheckCircle2 size={12} /><span>Delivered</span>
                             </button>
                           )}
                         </div>

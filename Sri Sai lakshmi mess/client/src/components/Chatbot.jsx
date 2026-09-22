@@ -47,7 +47,7 @@ function getBotResponse(input) {
   const text = input.toLowerCase().trim();
 
   if (KB.greetings.some(w => text.includes(w))) return {
-    text: '🙏 Vanakkam! Welcome to Sri Sai Lakshmi Mess!\n\nI am Meena, your virtual food assistant.\n\n🔥 Try: today special, menu, hours, location!',
+    text: '🙏 Vanakkam! Welcome to Sri Sai Lakshmi Mess!\n\nI am Mess Assist, your virtual food assistant.\n\n🔥 Try: today special, menu, hours, location!',
     suggestions: ['Today special', 'View menu', 'Opening hours'],
   };
   if (KB.bye.some(w => text.includes(w))) return {
@@ -171,7 +171,7 @@ export default function Chatbot() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([{
     id: 1, from: 'bot',
-    text: '🙏 Vanakkam! I am Meena, your Sri Sai Lakshmi Mess assistant!\n\nAsk me anything about our menu, timings, location, or how to order. How can I help you today?',
+    text: '🙏 Vanakkam! I am Mess Assist, your Sri Sai Lakshmi Mess assistant!\n\nAsk me anything about our menu, timings, location, or how to order. How can I help you today?',
     time: new Date(),
   }]);
   const [input, setInput] = useState('');
@@ -218,7 +218,7 @@ export default function Chatbot() {
             <div className="chatbot-online-dot" />
           </div>
           <div className="chatbot-header-info">
-            <span className="chatbot-name">Meena</span>
+            <span className="chatbot-name">Mess Assist</span>
             <span className="chatbot-status">Sri Sai Lakshmi Mess • Online</span>
           </div>
           <button className="chatbot-close-btn" onClick={() => setOpen(false)} aria-label="Close chat">

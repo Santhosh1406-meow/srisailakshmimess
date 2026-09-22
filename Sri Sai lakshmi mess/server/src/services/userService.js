@@ -165,6 +165,22 @@ class UserService {
     return this.users.find((u) => u.id === id) || null;
   }
 
+  async findByPhone(phone) {
+    const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
+    if (!cleanPhone) return null;
+    if (isDbConnected()) {
+      try {
+        const res = await query("SELECT * FROM users WHERE RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = $1 LIMIT 1", [cleanPhone]);
+        if (res && res.rows.length > 0) {
+          return rowToUser(res.rows[0]);
+        }
+      } catch (err) {
+        console.error('[UserService] Error querying user by phone:', err.message);
+      }
+    }
+    return this.users.find((u) => (u.phone || '').replace(/\D/g, '').slice(-10) === cleanPhone) || null;
+  }
+
   async getAllUsers() {
     if (isDbConnected()) {
       try {

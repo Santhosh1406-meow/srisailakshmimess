@@ -33,8 +33,15 @@ export default function Signup() {
       errs.name = 'Full name must be at least 2 characters.';
     if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       errs.email = 'Please enter a valid email address.';
-    if (formData.phone.trim() && !/^[+]?[0-9]{7,15}$/.test(formData.phone.replace(/[\s\-()]/g, '')))
-      errs.phone = 'Enter a valid phone number.';
+    if (formData.phone.trim()) {
+      const raw = formData.phone.replace(/\D/g, '');
+      let norm = raw;
+      if (norm.startsWith('91') && norm.length === 12) norm = norm.slice(2);
+      else if (norm.startsWith('0') && norm.length === 11) norm = norm.slice(1);
+      if (!/^[6-9]\d{9}$/.test(norm)) {
+        errs.phone = 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.';
+      }
+    }
     if (!formData.password || formData.password.length < 6)
       errs.password = 'Password must be at least 6 characters.';
     if (formData.password !== formData.confirmPassword)

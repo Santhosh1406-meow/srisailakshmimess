@@ -316,11 +316,25 @@ export default function OrderTracking() {
   };
 
   const handleSearch = async (type = searchType, value = searchValue, silent = false) => {
-    const trimmed = (value || '').trim();
+    let trimmed = (value || '').trim();
     if (!trimmed) {
       if (!silent) setError('Please enter a phone number or order ID.');
       return;
     }
+
+    if (type === 'phone') {
+      const rawDigits = trimmed.replace(/\D/g, '');
+      let norm = rawDigits;
+      if (norm.startsWith('91') && norm.length === 12) norm = norm.slice(2);
+      else if (norm.startsWith('0') && norm.length === 11) norm = norm.slice(1);
+
+      if (!/^[6-9]\d{9}$/.test(norm)) {
+        if (!silent) setError('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
+        return;
+      }
+      trimmed = norm;
+    }
+
     if (!silent) setIsLoading(true);
     setError('');
     setHasSearched(true);
@@ -384,7 +398,7 @@ export default function OrderTracking() {
     return () => clearInterval(pollInterval);
   }, [hasSearched, orders, isLoggedIn, myOrdersLoaded, searchType, searchValue]);
 
-  // Immediate storage & custom event listener
+  // Immediate storage & custom event & BroadcastChannel listener
   useEffect(() => {
     const handleLiveEvent = () => {
       if (hasSearched) {
@@ -398,9 +412,21 @@ export default function OrderTracking() {
 
     window.addEventListener('storage', handleLiveEvent);
     window.addEventListener('ssl_order_status_updated', handleLiveEvent);
+
+    let bc = null;
+    try {
+      bc = new BroadcastChannel('ssl_mess_channel');
+      bc.onmessage = (msg) => {
+        if (msg.data?.type === 'ORDER_STATUS_CHANGED') {
+          handleLiveEvent();
+        }
+      };
+    } catch (_) {}
+
     return () => {
       window.removeEventListener('storage', handleLiveEvent);
       window.removeEventListener('ssl_order_status_updated', handleLiveEvent);
+      if (bc) bc.close();
     };
   }, [hasSearched, isLoggedIn, myOrdersLoaded, searchType, searchValue]);
 

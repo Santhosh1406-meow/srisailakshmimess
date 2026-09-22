@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getMyOrders } from '../services/api';
+import { getMyOrders, trackOrderByPhone } from '../services/api';
 import {
   User, Package, Clock, CheckCircle2, XCircle, Truck,
   Star, CreditCard, UtensilsCrossed, Calendar, ArrowRight,
@@ -75,7 +75,16 @@ export default function CustomerDashboard() {
     try {
       if (!silent) setRefreshing(true);
       setError('');
-      const data = await getMyOrders();
+      let data = await getMyOrders();
+      // If getMyOrders is empty or missing, fallback to query by user's phone
+      if ((!data || data.length === 0) && user?.phone) {
+        try {
+          const byPhone = await trackOrderByPhone(user.phone);
+          if (Array.isArray(byPhone) && byPhone.length > 0) {
+            data = byPhone;
+          }
+        } catch (_) {}
+      }
       setOrders(data || []);
     } catch (e) {
       if (!silent) setError(e.message);
@@ -87,30 +96,36 @@ export default function CustomerDashboard() {
 
   useEffect(() => { if (user) loadOrders(); }, [user]);
 
-  // Real-time live polling every 4 seconds for active orders
+  // Real-time live continuous polling every 3.5 seconds
   useEffect(() => {
-    if (!user || orders.length === 0) return;
-    const hasActive = orders.some(o => {
-      const s = (o.status || '').toLowerCase();
-      return !s.includes('delivered') && !s.includes('completed') && !s.includes('cancelled');
-    });
-    if (!hasActive) return;
-
+    if (!user) return;
     const pollInterval = setInterval(() => {
       loadOrders(true);
-    }, 4000);
+    }, 3500);
 
     return () => clearInterval(pollInterval);
-  }, [user, orders]);
+  }, [user]);
 
-  // Listen to live order update events across tabs
+  // Listen to live order update events across tabs and BroadcastChannel
   useEffect(() => {
     const handleUpdate = () => { if (user) loadOrders(true); };
     window.addEventListener('storage', handleUpdate);
     window.addEventListener('ssl_order_status_updated', handleUpdate);
+
+    let bc = null;
+    try {
+      bc = new BroadcastChannel('ssl_mess_channel');
+      bc.onmessage = (msg) => {
+        if (msg.data?.type === 'ORDER_STATUS_CHANGED') {
+          handleUpdate();
+        }
+      };
+    } catch (_) {}
+
     return () => {
       window.removeEventListener('storage', handleUpdate);
       window.removeEventListener('ssl_order_status_updated', handleUpdate);
+      if (bc) bc.close();
     };
   }, [user]);
 

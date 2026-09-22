@@ -1,4 +1,5 @@
 const orderService = require('../services/orderService');
+const userService = require('../services/userService');
 
 exports.createOrder = async (req, res, next) => {
   try {
@@ -20,6 +21,20 @@ exports.createOrder = async (req, res, next) => {
       razorpayOrderId
     } = req.body;
 
+    let userId = req.user ? req.user.id : null;
+    if (!userId) {
+      try {
+        if (email) {
+          const u = await userService.findByEmail(email);
+          if (u) userId = u.id;
+        }
+        if (!userId && phone) {
+          const u = await userService.findByPhone(phone);
+          if (u) userId = u.id;
+        }
+      } catch (_) {}
+    }
+
     const newOrder = await orderService.createOrder({
       customerName,
       phone,
@@ -36,7 +51,7 @@ exports.createOrder = async (req, res, next) => {
       paymentStatus: paymentStatus || 'Pay on Delivery',
       paymentId: paymentId || null,
       razorpayOrderId: razorpayOrderId || null,
-      userId: req.user ? req.user.id : null // attach user if logged in
+      userId
     });
 
     return res.status(201).json({
@@ -150,7 +165,16 @@ exports.trackOrder = async (req, res, next) => {
  */
 exports.getMyOrders = async (req, res, next) => {
   try {
-    const orders = await orderService.getOrdersByUserId(req.user.id);
+    let email = req.user.email;
+    let phone = null;
+    try {
+      const u = await userService.findById(req.user.id);
+      if (u) {
+        email = u.email || email;
+        phone = u.phone || null;
+      }
+    } catch (_) {}
+    const orders = await orderService.getOrdersByUserId(req.user.id, email, phone);
     return res.status(200).json({ success: true, count: orders.length, data: orders });
   } catch (error) {
     next(error);

@@ -73,11 +73,15 @@ export default function OrderEnquiry() {
       errors.customerName = 'Name must be at least 2 characters.';
     }
 
-    const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{7,15}$/;
+    const rawPhone = (formData.phone || '').replace(/\D/g, '');
+    let normPhone = rawPhone;
+    if (normPhone.startsWith('91') && normPhone.length === 12) normPhone = normPhone.slice(2);
+    else if (normPhone.startsWith('0') && normPhone.length === 11) normPhone = normPhone.slice(1);
+
     if (!formData.phone.trim()) {
       errors.phone = 'Mobile number is required.';
-    } else if (!phoneRegex.test(formData.phone.replace(/\s+/g, ''))) {
-      errors.phone = 'Please enter a valid mobile number (e.g., 9876543210).';
+    } else if (!/^[6-9]\d{9}$/.test(normPhone)) {
+      errors.phone = 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.';
     }
 
     if (formData.email.trim()) {
@@ -124,15 +128,22 @@ export default function OrderEnquiry() {
 
     setIsSubmitting(true);
     try {
+      const rawPhone = (formData.phone || '').replace(/\D/g, '');
+      let normPhone = rawPhone;
+      if (normPhone.startsWith('91') && normPhone.length === 12) normPhone = normPhone.slice(2);
+      else if (normPhone.startsWith('0') && normPhone.length === 11) normPhone = normPhone.slice(1);
+
       const response = await submitOrderEnquiry({
-        customerName: formData.customerName,
-        phone: formData.phone,
-        email: formData.email,
+        customerName: formData.customerName.trim(),
+        phone: normPhone,
+        email: formData.email.trim(),
         foodItem: formData.foodItem,
         quantity: parseInt(formData.quantity, 10),
         preferredDate: formData.preferredDate,
         preferredTime: formData.preferredTime,
         specialInstructions: formData.specialInstructions,
+        orderType: 'takeaway',
+        deliveryAddress: 'Sri Sai Lakshmi Mess, Rathanavillas Bus Stop, Sivakasi-626123',
         userId: user ? user.id : null
       });
 

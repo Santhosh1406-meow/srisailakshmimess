@@ -90,20 +90,63 @@ export default function CartDrawer() {
   const deliveryFee = orderType === 'delivery' ? (subtotal >= 200 ? 0 : 25) : 0;
   const grandTotal = subtotal + deliveryFee;
 
+  const SIVAKASI_PINCODES = ['626123', '626124', '626130', '626189', '626128'];
+  const SIVAKASI_LOCALITIES = [
+    'sivakasi', 'thiruthangal', 'satchiyapuram', 'vilampatti', 'paraipatti',
+    'viswanatham', 'anaiyur', 'meenampatti', 'palayampatti', 'chinnakamanpatti',
+    'maraneri', 'pappakudi', 'reserve line', 'housing board', 'ngo colony',
+    'rathanavillas', 'coronation', 'badrakali', 'velayutham', 'bus stand'
+  ];
+  const OTHER_CITIES = [
+    'madurai', 'chennai', 'coimbatore', 'bangalore', 'bengaluru', 'trichy',
+    'tiruchirappalli', 'salem', 'tirunelveli', 'dindigul', 'erode', 'tiruppur',
+    'virudhunagar', 'rajapalayam', 'srivilliputhur', 'sattur', 'kovilpatti'
+  ];
+
   const validateDetails = () => {
     if (!customerName.trim() || customerName.trim().length < 2) {
-      setError('Please provide your full name.');
+      setError('Please provide your full name (minimum 2 characters).');
       return false;
     }
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (!cleanPhone || cleanPhone.length < 10) {
-      setError('Please provide a valid 10-digit mobile number.');
+
+    // 10-digit Indian mobile number validation
+    const rawDigits = phone.replace(/\D/g, '');
+    let norm = rawDigits;
+    if (norm.startsWith('91') && norm.length === 12) {
+      norm = norm.slice(2);
+    } else if (norm.startsWith('0') && norm.length === 11) {
+      norm = norm.slice(1);
+    }
+
+    if (!/^[6-9]\d{9}$/.test(norm)) {
+      setError('Please provide a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
       return false;
     }
-    if (orderType === 'delivery' && (!deliveryAddress.trim() || deliveryAddress.trim().length < 5)) {
-      setError('Please provide your delivery address in Sivakasi.');
-      return false;
+
+    // Sivakasi delivery address validation
+    if (orderType === 'delivery') {
+      if (!deliveryAddress.trim() || deliveryAddress.trim().length < 5) {
+        setError('Please provide your complete delivery address inside Sivakasi.');
+        return false;
+      }
+      const lower = deliveryAddress.toLowerCase();
+      const hasOtherCity = OTHER_CITIES.some((city) => {
+        const regex = new RegExp(`\\b${city}\\b`, 'i');
+        return regex.test(lower);
+      });
+      const hasSivakasiPincode = SIVAKASI_PINCODES.some((pin) => lower.includes(pin));
+      const hasSivakasiLocality = SIVAKASI_LOCALITIES.some((loc) => lower.includes(loc));
+
+      if (hasOtherCity && !hasSivakasiLocality) {
+        setError('Orders are accepted inside Sivakasi only. Delivery to other cities is not available.');
+        return false;
+      }
+      if (!hasSivakasiPincode && !hasSivakasiLocality) {
+        setError('Delivery is available inside Sivakasi only (Pincodes: 626123, 626124, 626130). Please provide a Sivakasi address.');
+        return false;
+      }
     }
+
     setError('');
     return true;
   };
@@ -117,9 +160,15 @@ export default function CartDrawer() {
     try {
       const summaryItems = cartItems.map((i) => `${i.name} (x${i.quantity})`).join(', ');
 
+      // Clean phone to exact 10 digits
+      const rawDigits = phone.replace(/\D/g, '');
+      let normPhone = rawDigits;
+      if (normPhone.startsWith('91') && normPhone.length === 12) normPhone = normPhone.slice(2);
+      else if (normPhone.startsWith('0') && normPhone.length === 11) normPhone = normPhone.slice(1);
+
       const orderPayload = {
         customerName: customerName.trim(),
-        phone: phone.trim(),
+        phone: normPhone,
         email: email.trim(),
         foodItem: summaryItems,
         quantity: cartCount,
@@ -130,7 +179,8 @@ export default function CartDrawer() {
         specialInstructions: specialInstructions.trim(),
         preferredDate: new Date().toISOString().split('T')[0],
         preferredTime: 'Immediate (30-45 mins)',
-        paymentStatus: paymentMethod === 'online' ? 'Pending' : 'Pay on Delivery'
+        paymentStatus: paymentMethod === 'online' ? 'Pending' : 'Pay on Delivery',
+        userId: user ? user.id : null
       };
 
       // 1. Submit order to server
@@ -468,26 +518,49 @@ export default function CartDrawer() {
 
               {/* Mobile */}
               <div className="form-group" style={{ marginBottom: '0.85rem' }}>
-                <label className="form-label" style={{ fontSize: '0.82rem' }}>
-                  Mobile Number <span className="required">*</span>
+                <label className="form-label" style={{ fontSize: '0.82rem', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Mobile Number <span className="required">*</span></span>
+                  <span style={{ fontSize: '0.72rem', color: '#64748b' }}>10 digits (India)</span>
                 </label>
-                <div className="auth-input-wrapper">
-                  <Phone size={16} className="auth-input-icon" />
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="10-digit mobile number"
-                    className="form-control auth-input-with-icon"
-                    maxLength={15}
-                    required
-                  />
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '0.2rem',
+                    background: '#f1f5f9', border: '1px solid #cbd5e1',
+                    borderRadius: '8px', padding: '0 0.6rem', height: '40px',
+                    fontSize: '0.85rem', fontWeight: '700', color: '#334155'
+                  }}>
+                    <span>🇮🇳 +91</span>
+                  </div>
+                  <div className="auth-input-wrapper" style={{ flex: 1 }}>
+                    <Phone size={16} className="auth-input-icon" />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setPhone(digits);
+                      }}
+                      placeholder="9876543210"
+                      className="form-control auth-input-with-icon"
+                      maxLength={10}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Address (If delivery) */}
               {orderType === 'delivery' && (
                 <div className="form-group" style={{ marginBottom: '0.85rem' }}>
+                  <div style={{
+                    backgroundColor: '#fffbeb', border: '1px solid #fef3c7',
+                    borderRadius: '8px', padding: '0.45rem 0.65rem', marginBottom: '0.5rem',
+                    fontSize: '0.75rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '0.4rem'
+                  }}>
+                    <MapPin size={13} style={{ flexShrink: 0, color: '#d97706' }} />
+                    <span><strong>Sivakasi Only:</strong> We deliver inside Sivakasi town & nearby areas (626123, 626124, 626130).</span>
+                  </div>
+
                   <label className="form-label" style={{ fontSize: '0.82rem' }}>
                     Delivery Address in Sivakasi <span className="required">*</span>
                   </label>
@@ -496,12 +569,34 @@ export default function CartDrawer() {
                     <textarea
                       value={deliveryAddress}
                       onChange={(e) => setDeliveryAddress(e.target.value)}
-                      placeholder="Door No., Street Name, Landmark, Sivakasi"
+                      placeholder="Door No., Street, Landmark, Sivakasi - 626123"
                       className="form-control auth-input-with-icon"
                       rows={2}
                       style={{ resize: 'none' }}
                       required
                     />
+                  </div>
+
+                  {/* Quick locality suggestions */}
+                  <div style={{ marginTop: '0.35rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Quick areas:</span>
+                    {['Rathanavillas', 'Thiruthangal', 'Satchiyapuram', 'Vilampatti Rd', 'Paraipatti', 'Reserve Line'].map((area) => (
+                      <button
+                        key={area}
+                        type="button"
+                        onClick={() => {
+                          if (!deliveryAddress.includes(area)) {
+                            setDeliveryAddress((prev) => (prev ? `${prev}, ${area}, Sivakasi` : `${area}, Sivakasi`));
+                          }
+                        }}
+                        style={{
+                          background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px',
+                          padding: '0.15rem 0.4rem', fontSize: '0.68rem', color: '#475569', cursor: 'pointer'
+                        }}
+                      >
+                        +{area}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
