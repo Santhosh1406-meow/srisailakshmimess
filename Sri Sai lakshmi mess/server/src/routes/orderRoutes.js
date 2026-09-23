@@ -2,11 +2,10 @@ const express = require('express');
 const router = express.Router();
 const orderController = require('../controllers/orderController');
 const { validateOrderInput } = require('../middleware/validator');
-const { orderLimiter } = require('../middleware/rateLimiter');
 const { protect, optionalAuth, adminOnly } = require('../middleware/authMiddleware');
 
 // POST /api/orders — Submit new order enquiry (optionally linked to logged-in user)
-router.post('/', orderLimiter, optionalAuth, validateOrderInput, orderController.createOrder);
+router.post('/', optionalAuth, validateOrderInput, orderController.createOrder);
 
 // GET /api/orders — Get all orders (Admin or authorized user)
 router.get('/', protect, adminOnly, orderController.getOrders);
