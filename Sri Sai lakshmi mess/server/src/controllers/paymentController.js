@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const config = require('../config');
 const orderService = require('../services/orderService');
 
 // Lazily initialize Razorpay client
@@ -7,8 +8,8 @@ function getRazorpay() {
   if (!razorpayInstance) {
     const Razorpay = require('razorpay');
     razorpayInstance = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID || '',
-      key_secret: process.env.RAZORPAY_KEY_SECRET || ''
+      key_id: process.env.RAZORPAY_KEY_ID || config.razorpayKeyId,
+      key_secret: process.env.RAZORPAY_KEY_SECRET || config.razorpayKeySecret
     });
   }
   return razorpayInstance;
@@ -46,8 +47,8 @@ exports.createPaymentOrder = async (req, res, next) => {
     }
 
     // Check if credentials are set
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const keyId = process.env.RAZORPAY_KEY_ID || config.razorpayKeyId;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || config.razorpayKeySecret;
 
     if (!keyId || !keySecret) {
       return res.status(500).json({
@@ -151,7 +152,7 @@ exports.verifyPayment = async (req, res, next) => {
       });
     }
 
-    const secret = process.env.RAZORPAY_KEY_SECRET;
+    const secret = process.env.RAZORPAY_KEY_SECRET || config.razorpayKeySecret;
     if (!secret) {
       return res.status(500).json({
         success: false,
@@ -207,10 +208,12 @@ exports.verifyPayment = async (req, res, next) => {
  * GET /api/payments/config — Return the Razorpay key ID (safe to expose, never secret)
  */
 exports.getPaymentConfig = (req, res) => {
+  const keyId = process.env.RAZORPAY_KEY_ID || config.razorpayKeyId || null;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || config.razorpayKeySecret || null;
   return res.status(200).json({
     success: true,
-    keyId: process.env.RAZORPAY_KEY_ID || null,
-    configured: !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)
+    keyId: keyId,
+    configured: !!(keyId && keySecret)
   });
 };
 
