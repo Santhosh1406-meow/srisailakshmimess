@@ -108,7 +108,19 @@ export default function CustomerDashboard() {
 
   // Listen to live order update events across tabs and BroadcastChannel
   useEffect(() => {
-    const handleUpdate = () => { if (user) loadOrders(true); };
+    const handleUpdate = (e) => {
+      if (e?.detail?.orderId && e?.detail?.status) {
+        const matchId = (e.detail.orderId || '').replace(/^#/, '').trim().toUpperCase();
+        setOrders((prev) => prev.map((ord) => {
+          const cleanOid = (ord.id || '').replace(/^#/, '').trim().toUpperCase();
+          if (cleanOid === matchId) {
+            return { ...ord, status: e.detail.status, updatedAt: new Date().toISOString() };
+          }
+          return ord;
+        }));
+      }
+      if (user) loadOrders(true);
+    };
     window.addEventListener('storage', handleUpdate);
     window.addEventListener('ssl_order_status_updated', handleUpdate);
 
@@ -117,6 +129,16 @@ export default function CustomerDashboard() {
       bc = new BroadcastChannel('ssl_mess_channel');
       bc.onmessage = (msg) => {
         if (msg.data?.type === 'ORDER_STATUS_CHANGED') {
+          if (msg.data.orderId && msg.data.status) {
+            const matchId = (msg.data.orderId || '').replace(/^#/, '').trim().toUpperCase();
+            setOrders((prev) => prev.map((ord) => {
+              const cleanOid = (ord.id || '').replace(/^#/, '').trim().toUpperCase();
+              if (cleanOid === matchId) {
+                return { ...ord, status: msg.data.status, updatedAt: new Date().toISOString() };
+              }
+              return ord;
+            }));
+          }
           handleUpdate();
         }
       };

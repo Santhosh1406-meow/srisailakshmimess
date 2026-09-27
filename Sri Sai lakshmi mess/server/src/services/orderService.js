@@ -150,7 +150,13 @@ class OrderService {
 
     if (isDbConnected()) {
       try {
-        const res = await query('DELETE FROM orders WHERE UPPER(TRIM(id)) = UPPER(TRIM($1)) RETURNING id', [cleanId]);
+        const res = await query(`
+          DELETE FROM orders 
+          WHERE UPPER(TRIM(REPLACE(id, '#', ''))) = $1 
+             OR UPPER(TRIM(id)) = $1 
+             OR UPPER(TRIM(id)) = '#' || $1
+          RETURNING id
+        `, [cleanId]);
         if (res && res.rows && res.rows.length > 0) {
           deleted = true;
         }
@@ -169,10 +175,16 @@ class OrderService {
   }
 
   async getOrderById(id) {
-    const cleanId = (id || '').trim().toUpperCase();
+    const cleanId = String(id || '').replace(/^#/, '').trim().toUpperCase();
     if (isDbConnected()) {
       try {
-        const res = await query('SELECT * FROM orders WHERE UPPER(id) = $1 LIMIT 1', [cleanId]);
+        const res = await query(`
+          SELECT * FROM orders 
+          WHERE UPPER(TRIM(REPLACE(id, '#', ''))) = $1 
+             OR UPPER(TRIM(id)) = $1 
+             OR UPPER(TRIM(id)) = '#' || $1
+          LIMIT 1
+        `, [cleanId]);
         if (res && res.rows.length > 0) {
           return rowToOrder(res.rows[0]);
         }
@@ -180,7 +192,7 @@ class OrderService {
         console.error('[OrderService] Error finding order by id in Neon DB:', e.message);
       }
     }
-    return this.orders.find((o) => (o.id || '').toUpperCase() === cleanId) || null;
+    return this.orders.find((o) => (o.id || '').replace(/^#/, '').trim().toUpperCase() === cleanId) || null;
   }
 
   async getOrdersByPhone(phone) {
@@ -238,7 +250,9 @@ class OrderService {
           SET status = $1, 
               delivered_at = CASE WHEN $2::text IS NOT NULL THEN CURRENT_TIMESTAMP ELSE delivered_at END,
               updated_at = CURRENT_TIMESTAMP
-          WHERE UPPER(TRIM(id)) = UPPER(TRIM($3))
+          WHERE UPPER(TRIM(REPLACE(id, '#', ''))) = $3 
+             OR UPPER(TRIM(id)) = $3 
+             OR UPPER(TRIM(id)) = '#' || $3
           RETURNING *
         `, [status, deliveredAt, cleanId]);
         if (res && res.rows && res.rows.length > 0) {

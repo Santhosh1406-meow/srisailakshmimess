@@ -4,7 +4,19 @@
  */
 import { DEFAULT_MENU, filterFallbackMenu } from '../data/defaultMenu';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const RENDER_BACKEND_URL = 'https://srisailakshmimess.onrender.com/api';
+
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== '/api') {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('netlify.app')) {
+    return RENDER_BACKEND_URL;
+  }
+  return import.meta.env.VITE_API_URL || '/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 function getAuthHeader() {
   const token = localStorage.getItem('ssl_auth_token');
@@ -13,7 +25,7 @@ function getAuthHeader() {
 
 /**
  * Safely executes a fetch request expecting JSON response.
- * Protects against Netlify SPA HTML fallback (e.g. <!DOCTYPE html>)
+ * Protects against Netlify SPA HTML fallback (e.g. <!DOCTYPE html>) with automatic failover to Render live API.
  */
 async function safeFetchJson(url, options = {}) {
   const headers = {
@@ -21,25 +33,50 @@ async function safeFetchJson(url, options = {}) {
     ...(options.headers || {})
   };
 
-  const res = await fetch(url, { ...options, headers });
-  const contentType = res.headers.get('content-type') || '';
+  let targetUrl = url;
+  try {
+    const res = await fetch(targetUrl, { ...options, headers });
+    const contentType = res.headers.get('content-type') || '';
 
-  // If response is HTML instead of JSON, the backend route was captured by Netlify SPA redirect
-  if (!contentType.includes('application/json')) {
-    throw new Error(`Non-JSON response received (${res.status}). Server may be initializing or unreachable.`);
+    if (contentType.includes('application/json')) {
+      const json = await res.json();
+      if (!res.ok) {
+        const errorMsg = json.errors
+          ? (Array.isArray(json.errors) ? json.errors.join(', ') : json.errors)
+          : (json.message || `Request failed with status ${res.status}`);
+        const err = new Error(errorMsg);
+        err.status = res.status;
+        err.data = json;
+        throw err;
+      }
+      return json;
+    }
+  } catch (initialErr) {
+    if (initialErr.status) throw initialErr;
   }
 
-  const json = await res.json();
-  if (!res.ok) {
-    const errorMsg = json.errors
-      ? (Array.isArray(json.errors) ? json.errors.join(', ') : json.errors)
-      : (json.message || `Request failed with status ${res.status}`);
-    const err = new Error(errorMsg);
-    err.status = res.status;
-    err.data = json;
-    throw err;
+  // Automatic failover to Render live backend if request was routed to Netlify SPA HTML
+  if (!targetUrl.startsWith('http') || targetUrl.includes('netlify.app')) {
+    const fallbackPath = targetUrl.startsWith('/api') ? targetUrl.replace(/^\/api/, '') : targetUrl;
+    const directRenderUrl = `${RENDER_BACKEND_URL}${fallbackPath.startsWith('/') ? '' : '/'}${fallbackPath}`;
+    const directRes = await fetch(directRenderUrl, { ...options, headers });
+    const directType = directRes.headers.get('content-type') || '';
+    if (directType.includes('application/json')) {
+      const json = await directRes.json();
+      if (!directRes.ok) {
+        const errorMsg = json.errors
+          ? (Array.isArray(json.errors) ? json.errors.join(', ') : json.errors)
+          : (json.message || `Request failed with status ${directRes.status}`);
+        const err = new Error(errorMsg);
+        err.status = directRes.status;
+        err.data = json;
+        throw err;
+      }
+      return json;
+    }
   }
-  return json;
+
+  throw new Error(`Non-JSON response received. Server may be initializing or unreachable.`);
 }
 
 // Local Storage helpers for offline fallback persistence
@@ -54,7 +91,7 @@ function getLocalOrders() {
 function saveLocalOrders(orders) {
   try {
     localStorage.setItem('ssl_local_orders', JSON.stringify(orders));
-  } catch (_) {}
+  } catch (_) { }
 }
 
 // Track pending admin status updates to prevent fast polling race conditions from reverting recent changes
@@ -72,7 +109,7 @@ function savePendingStatusUpdate(orderId, status) {
     const map = getPendingStatusUpdates();
     map[clean] = { status, timestamp: Date.now() };
     localStorage.setItem('ssl_pending_status_updates', JSON.stringify(map));
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function removePendingStatusUpdate(orderId) {
@@ -81,7 +118,7 @@ function removePendingStatusUpdate(orderId) {
     const map = getPendingStatusUpdates();
     delete map[clean];
     localStorage.setItem('ssl_pending_status_updates', JSON.stringify(map));
-  } catch (_) {}
+  } catch (_) { }
 }
 
 // ─── Menu ─────────────────────────────────────────────────────────────────────
@@ -154,7 +191,7 @@ export const submitOrderEnquiry = async (orderPayload) => {
     const bc = new BroadcastChannel('ssl_mess_channel');
     bc.postMessage({ type: 'NEW_ORDER_SUBMITTED', order: finalOrder });
     bc.close();
-  } catch (_) {}
+  } catch (_) { }
 
   return {
     success: true,
@@ -164,11 +201,24 @@ export const submitOrderEnquiry = async (orderPayload) => {
 };
 
 export const trackOrderByPhone = async (phone) => {
+  const cleanPhone = (phone || '').replace(/\D/g, '');
   try {
-    const json = await safeFetchJson(`${API_BASE_URL}/orders/track?phone=${encodeURIComponent(phone)}`);
+    const json = await safeFetchJson(`${API_BASE_URL}/orders/track?phone=${encodeURIComponent(cleanPhone)}`);
+    if (Array.isArray(json.data) && json.data.length > 0) {
+      const local = getLocalOrders();
+      json.data.forEach((serverOrd) => {
+        const sid = (serverOrd.id || '').replace(/^#/, '').trim().toUpperCase();
+        const idx = local.findIndex((o) => (o.id || '').replace(/^#/, '').trim().toUpperCase() === sid);
+        if (idx !== -1) {
+          local[idx] = { ...local[idx], ...serverOrd };
+        } else {
+          local.unshift(serverOrd);
+        }
+      });
+      saveLocalOrders(local);
+    }
     return json.data;
   } catch (error) {
-    const cleanPhone = phone.replace(/\D/g, '');
     const local = getLocalOrders().filter((o) => (o.phone || '').replace(/\D/g, '').includes(cleanPhone));
     if (local.length > 0) return local;
     throw new Error('No orders found for this phone number.');
@@ -176,11 +226,28 @@ export const trackOrderByPhone = async (phone) => {
 };
 
 export const trackOrderById = async (orderId) => {
+  const cleanId = String(orderId || '').replace(/^#/, '').trim();
+  const cleanUpper = cleanId.toUpperCase();
   try {
-    const json = await safeFetchJson(`${API_BASE_URL}/orders/track?orderId=${encodeURIComponent(orderId)}`);
-    return json.data;
+    const json = await safeFetchJson(`${API_BASE_URL}/orders/track?orderId=${encodeURIComponent(cleanId)}`);
+    const data = json.data;
+    if (data) {
+      const serverOrd = Array.isArray(data) ? data[0] : data;
+      if (serverOrd && serverOrd.id) {
+        const local = getLocalOrders();
+        const idx = local.findIndex((o) => (o.id || '').replace(/^#/, '').trim().toUpperCase() === cleanUpper);
+        if (idx !== -1) {
+          local[idx] = { ...local[idx], ...serverOrd };
+          saveLocalOrders(local);
+        } else {
+          local.unshift(serverOrd);
+          saveLocalOrders(local);
+        }
+      }
+    }
+    return data;
   } catch (error) {
-    const local = getLocalOrders().find((o) => (o.id || '').toUpperCase() === orderId.toUpperCase());
+    const local = getLocalOrders().find((o) => (o.id || '').replace(/^#/, '').trim().toUpperCase() === cleanUpper);
     if (local) return local;
     throw new Error('Order not found.');
   }
@@ -191,6 +258,9 @@ export const getMyOrders = async () => {
     const json = await safeFetchJson(`${API_BASE_URL}/orders/my`, {
       headers: { ...getAuthHeader() }
     });
+    if (Array.isArray(json.data) && json.data.length > 0) {
+      saveLocalOrders(json.data);
+    }
     return json.data;
   } catch (error) {
     return getLocalOrders().filter((o) => !o.id.startsWith('ORD-DEMO-'));
@@ -282,7 +352,7 @@ export const deleteOrderAdmin = async (orderId) => {
     const bc = new BroadcastChannel('ssl_mess_channel');
     bc.postMessage({ type: 'ORDER_DELETED', orderId: cleanId });
     bc.close();
-  } catch (_) {}
+  } catch (_) { }
 
   return true;
 };
@@ -317,7 +387,7 @@ export const updateOrderStatusAdmin = async (orderId, status, fallbackOrder = nu
           serverUpdated = createRes.data;
           serverError = null;
         }
-      } catch (_) {}
+      } catch (_) { }
     }
   }
 
@@ -336,24 +406,24 @@ export const updateOrderStatusAdmin = async (orderId, status, fallbackOrder = nu
     orders[idx].status = status;
     orders[idx].updatedAt = nowIso;
     saveLocalOrders(orders);
-    try { window.dispatchEvent(new CustomEvent('ssl_order_status_updated', { detail: { orderId: cleanId, status } })); } catch (_) {}
+    try { window.dispatchEvent(new CustomEvent('ssl_order_status_updated', { detail: { orderId: cleanId, status } })); } catch (_) { }
     try {
       const bc = new BroadcastChannel('ssl_mess_channel');
       bc.postMessage({ type: 'ORDER_STATUS_CHANGED', orderId: cleanId, status });
       bc.close();
-    } catch (_) {}
+    } catch (_) { }
     return serverUpdated || orders[idx];
   }
 
   if (serverUpdated) {
     orders.unshift(serverUpdated);
     saveLocalOrders(orders);
-    try { window.dispatchEvent(new CustomEvent('ssl_order_status_updated', { detail: { orderId: cleanId, status } })); } catch (_) {}
+    try { window.dispatchEvent(new CustomEvent('ssl_order_status_updated', { detail: { orderId: cleanId, status } })); } catch (_) { }
     try {
       const bc = new BroadcastChannel('ssl_mess_channel');
       bc.postMessage({ type: 'ORDER_STATUS_CHANGED', orderId: cleanId, status });
       bc.close();
-    } catch (_) {}
+    } catch (_) { }
     return serverUpdated;
   }
 

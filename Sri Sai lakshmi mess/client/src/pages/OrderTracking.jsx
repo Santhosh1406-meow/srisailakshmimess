@@ -400,7 +400,17 @@ export default function OrderTracking() {
 
   // Immediate storage & custom event & BroadcastChannel listener
   useEffect(() => {
-    const handleLiveEvent = () => {
+    const handleLiveEvent = (e) => {
+      if (e?.detail?.orderId && e?.detail?.status) {
+        const matchId = (e.detail.orderId || '').replace(/^#/, '').trim().toUpperCase();
+        setOrders((prev) => prev.map((ord) => {
+          const cleanOid = (ord.id || '').replace(/^#/, '').trim().toUpperCase();
+          if (cleanOid === matchId) {
+            return { ...ord, status: e.detail.status, updatedAt: new Date().toISOString() };
+          }
+          return ord;
+        }));
+      }
       if (hasSearched) {
         if (isLoggedIn && myOrdersLoaded) {
           loadMyOrders(true);
@@ -418,6 +428,16 @@ export default function OrderTracking() {
       bc = new BroadcastChannel('ssl_mess_channel');
       bc.onmessage = (msg) => {
         if (msg.data?.type === 'ORDER_STATUS_CHANGED') {
+          if (msg.data.orderId && msg.data.status) {
+            const matchId = (msg.data.orderId || '').replace(/^#/, '').trim().toUpperCase();
+            setOrders((prev) => prev.map((ord) => {
+              const cleanOid = (ord.id || '').replace(/^#/, '').trim().toUpperCase();
+              if (cleanOid === matchId) {
+                return { ...ord, status: msg.data.status, updatedAt: new Date().toISOString() };
+              }
+              return ord;
+            }));
+          }
           handleLiveEvent();
         }
       };
