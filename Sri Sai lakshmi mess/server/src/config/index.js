@@ -8,17 +8,25 @@ const parseClientUrls = () => {
   return raw.split(',').map((url) => url.trim()).filter(Boolean);
 };
 
-const NEON_DATABASE_URL = 'postgresql://neondb_owner:npg_Its9KJe0yiDS@ep-aged-frost-b3oiwfi2-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+// Validate critical env vars in production
+if (process.env.NODE_ENV === 'production') {
+  const required = ['DATABASE_URL', 'JWT_SECRET', 'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET'];
+  const missing = required.filter((k) => !process.env[k]);
+  if (missing.length > 0) {
+    console.error(`[Config] FATAL: Missing required environment variables: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+}
 
 module.exports = {
   port: process.env.PORT || 5000,
   nodeEnv: process.env.NODE_ENV || 'development',
   corsOrigins: parseClientUrls(),
-  databaseUrl: process.env.DATABASE_URL || NEON_DATABASE_URL,
-  jwtSecret: process.env.JWT_SECRET || 'srilakshmi_mess_secret_dev_2024',
+  databaseUrl: process.env.DATABASE_URL,
+  jwtSecret: process.env.JWT_SECRET || (process.env.NODE_ENV !== 'production' ? 'srilakshmi_mess_secret_dev_2024' : null),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  razorpayKeyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_Th84zfuhLcZDnL',
-  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || 'gW4XpGu4Yt26N68QLsi5kDWF',
+  razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET,
   restaurantInfo: {
     name: 'Sri Sai Lakshmi Mess',
     tagline: 'Authentic Taste • Homely Food • Happy Moments',
@@ -28,4 +36,3 @@ module.exports = {
     openingHours: 'Monday - Sunday: 7:00 AM - 10:00 PM'
   }
 };
-

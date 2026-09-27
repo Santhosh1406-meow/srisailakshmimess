@@ -22,20 +22,20 @@ app.use(helmet());
 // Cross-Origin Resource Sharing
 const corsOptions = {
   origin: function (origin, callback) {
-    // allow requests with no origin (like mobile apps, curl, postman)
+    // Allow server-to-server requests (no origin header)
     if (!origin) return callback(null, true);
-    
-    // In development or if origin matches config
-    if (config.nodeEnv === 'development' || config.corsOrigins.includes(origin) || config.corsOrigins.includes('*')) {
+
+    // Always allow in development
+    if (config.nodeEnv === 'development') {
       return callback(null, true);
     }
 
-    // Check if origin matches netlify subdomains or localhost
-    if (origin.endsWith('.netlify.app') || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    // In production, only allow explicitly listed origins
+    if (config.corsOrigins.includes(origin)) {
       return callback(null, true);
     }
 
-    return callback(null, true); // Permissive for easy testing and hosting, can be restricted via CLIENT_URL
+    return callback(new Error(`CORS: Origin ${origin} not allowed.`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

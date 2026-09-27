@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'srilakshmi_mess_secret_2024_change_in_prod';
+const { jwtSecret: JWT_SECRET } = require('../config');
 
 /**
  * Middleware: Verifies the JWT Authorization Bearer token.
@@ -14,11 +14,6 @@ exports.protect = (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
 
-  // Support local development / offline emergency admin tokens
-  if (token && token.startsWith('ssl_token_local_')) {
-    req.user = { id: 'USR-ADMIN-001', email: 'admin@srisailakshmimess.com', role: 'admin' };
-    return next();
-  }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
