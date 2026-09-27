@@ -236,14 +236,7 @@ export const getAllOrdersAdmin = async () => {
         return serverOrder;
       });
 
-      const serverIds = new Set(json.data.map((o) => (o.id || '').replace(/^#/, '').trim().toUpperCase()));
-      for (const loc of local) {
-        const cleanLocId = (loc.id || '').replace(/^#/, '').trim().toUpperCase();
-        if (!serverIds.has(cleanLocId)) {
-          merged.push(loc);
-        }
-      }
-
+      // Synchronize local storage to strictly match current live database orders
       saveLocalOrders(merged);
       return merged;
     }
@@ -262,6 +255,36 @@ export const getAllOrdersAdmin = async () => {
       return order;
     });
   }
+};
+
+export const deleteOrderAdmin = async (orderId) => {
+  const cleanId = String(orderId || '').replace(/^#/, '').trim();
+  removePendingStatusUpdate(cleanId);
+
+  try {
+    await safeFetchJson(`${API_BASE_URL}/orders/${encodeURIComponent(cleanId)}`, {
+      method: 'DELETE',
+      headers: { ...getAuthHeader() }
+    });
+  } catch (err) {
+    console.warn('[Admin API] Delete order notice:', err.message);
+  }
+
+  // Immediately remove from local storage cache
+  const cleanUpper = cleanId.toUpperCase();
+  const orders = getLocalOrders().filter(
+    (o) => (o.id || '').replace(/^#/, '').trim().toUpperCase() !== cleanUpper
+  );
+  saveLocalOrders(orders);
+
+  // Broadcast deletion across open tabs
+  try {
+    const bc = new BroadcastChannel('ssl_mess_channel');
+    bc.postMessage({ type: 'ORDER_DELETED', orderId: cleanId });
+    bc.close();
+  } catch (_) {}
+
+  return true;
 };
 
 export const updateOrderStatusAdmin = async (orderId, status, fallbackOrder = null) => {

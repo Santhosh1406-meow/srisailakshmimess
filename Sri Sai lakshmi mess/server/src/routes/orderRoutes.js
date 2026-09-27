@@ -22,6 +22,8 @@ router.get('/my', protect, orderController.getMyOrders);
 // PATCH /api/orders/:id/status — Admin update order status
 router.patch('/:id/status', protect, adminOnly, orderController.updateOrderStatus);
 
+// DELETE /api/orders/:id — Admin delete order
+router.delete('/:id', protect, adminOnly, orderController.deleteOrder);
 
 // GET /api/orders/:id — Get single order by ID
 router.get('/:id', orderController.getOrderById);

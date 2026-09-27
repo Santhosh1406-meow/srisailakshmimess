@@ -132,13 +132,40 @@ class OrderService {
       try {
         const res = await query('SELECT * FROM orders ORDER BY created_at DESC');
         if (res && res.rows) {
-          return res.rows.map(rowToOrder);
+          const dbOrders = res.rows.map(rowToOrder);
+          this.orders = dbOrders;
+          this._persist();
+          return dbOrders;
         }
       } catch (e) {
         console.error('[OrderService] Error fetching orders from Neon DB:', e.message);
       }
     }
     return [...this.orders];
+  }
+
+  async deleteOrder(id) {
+    const cleanId = String(id || '').replace(/^#/, '').trim().toUpperCase();
+    let deleted = false;
+
+    if (isDbConnected()) {
+      try {
+        const res = await query('DELETE FROM orders WHERE UPPER(TRIM(id)) = UPPER(TRIM($1)) RETURNING id', [cleanId]);
+        if (res && res.rows && res.rows.length > 0) {
+          deleted = true;
+        }
+      } catch (e) {
+        console.error('[OrderService] Error deleting order from Neon DB:', e.message);
+      }
+    }
+
+    const prevCount = this.orders.length;
+    this.orders = this.orders.filter((o) => (o.id || '').replace(/^#/, '').trim().toUpperCase() !== cleanId);
+    if (this.orders.length !== prevCount) {
+      deleted = true;
+    }
+    this._persist();
+    return deleted;
   }
 
   async getOrderById(id) {
@@ -223,7 +250,7 @@ class OrderService {
     }
 
     const orderIndex = this.orders.findIndex((o) => (o.id || '').replace(/^#/, '').trim().toUpperCase() === cleanId);
-    
+
     // If order was in local memory but not yet in Neon DB, persist it to Neon DB now
     if (isDbConnected() && !dbUpdatedOrder && orderIndex !== -1) {
       try {

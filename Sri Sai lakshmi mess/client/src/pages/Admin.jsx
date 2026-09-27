@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  getAllOrdersAdmin, updateOrderStatusAdmin, getAdminStats, fetchMenu,
+  getAllOrdersAdmin, updateOrderStatusAdmin, deleteOrderAdmin, getAdminStats, fetchMenu,
   createMenuItemAdmin, updateMenuItemAdmin, deleteMenuItemAdmin,
   fetchAllOffersAdmin, createOfferAdmin, updateOfferAdmin, deleteOfferAdmin,
   getAllCustomers
@@ -48,7 +48,7 @@ function playOrderNotificationSound() {
     gain2.connect(ctx.destination);
     osc2.start(now + 0.14);
     osc2.stop(now + 0.75);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 // ─── Reusable Modal Component ──────────────────────────────────────────────────
@@ -249,9 +249,12 @@ export default function Admin() {
             loadAdminData(true);
             if (!soundMuted) playOrderNotificationSound();
             if (msg.data.order) setNewOrderToast(msg.data.order);
+          } else if (msg.data?.type === 'ORDER_DELETED') {
+            const delId = (msg.data.orderId || '').replace(/^#/, '').trim().toUpperCase();
+            setOrders((prev) => prev.filter((o) => (o.id || '').replace(/^#/, '').trim().toUpperCase() !== delId));
           }
         };
-      } catch (_) {}
+      } catch (_) { }
 
       return () => {
         clearInterval(timer);
@@ -304,13 +307,13 @@ export default function Admin() {
           return oid === cleanId ? { ...o, ...updated, status: newStatus } : o;
         }));
       }
-      try { const ns = await getAdminStats(); if (ns) setStats(ns); } catch (_) {}
+      try { const ns = await getAdminStats(); if (ns) setStats(ns); } catch (_) { }
       // Broadcast to customer views across tabs
       try {
         const bc = new BroadcastChannel('ssl_mess_channel');
         bc.postMessage({ type: 'ORDER_STATUS_CHANGED', orderId: cleanId, status: newStatus });
         bc.close();
-      } catch (_) {}
+      } catch (_) { }
     } catch (err) {
       delete pendingStatusMapRef.current[cleanId];
       if (prevStatus) {
@@ -322,6 +325,24 @@ export default function Admin() {
       alert(`Failed to update status: ${err.message}`);
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  // ── Order Delete ─────────────────────────────────────────────────────────────
+  const handleDeleteOrder = async (orderId) => {
+    const cleanId = String(orderId || '').replace(/^#/, '').trim();
+    if (!window.confirm(`Delete order #${cleanId} permanently? This will remove it from the database.`)) {
+      return;
+    }
+    // Optimistic removal from UI state
+    setOrders((prev) => prev.filter((o) => (o.id || '').replace(/^#/, '').trim().toUpperCase() !== cleanId.toUpperCase()));
+    delete pendingStatusMapRef.current[cleanId];
+    try {
+      await deleteOrderAdmin(cleanId);
+      try { const ns = await getAdminStats(); if (ns) setStats(ns); } catch (_) {}
+    } catch (err) {
+      alert(`Failed to delete order: ${err.message}`);
+      loadAdminData(true);
     }
   };
 
@@ -349,8 +370,8 @@ export default function Admin() {
     const sel = selectedStatus.toLowerCase();
     let matchesStatus = selectedStatus === 'All' ? true :
       sel === 'delivered' ? (s === 'delivered' || s === 'completed') :
-      (sel === 'order received' || sel === 'enquiry received') ? (s === 'order received' || s === 'enquiry received' || s === 'pending') :
-      s === sel;
+        (sel === 'order received' || sel === 'enquiry received') ? (s === 'order received' || s === 'enquiry received' || s === 'pending') :
+          s === sel;
     const query = searchQuery.toLowerCase().trim();
     const matchesSearch = !query ||
       (order.id || '').toLowerCase().includes(query) ||
@@ -1037,500 +1058,507 @@ export default function Admin() {
               TAB 1: ORDERS & BOOKINGS
           ════════════════════════════════════════════════ */}
           {activeTab === 'enquiries' && (
-          <div>
-            {/* Search & Filter Bar */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', ...CARD }}>
-              <div style={{ position: 'relative', flex: '1', minWidth: '260px' }}>
-                <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-                <input type="text" placeholder="Search by name, phone, email, dish, or Order ID..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ ...INPUT_STYLE, paddingLeft: '2.4rem' }} />
+            <div>
+              {/* Search & Filter Bar */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', ...CARD }}>
+                <div style={{ position: 'relative', flex: '1', minWidth: '260px' }}>
+                  <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                  <input type="text" placeholder="Search by name, phone, email, dish, or Order ID..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{ ...INPUT_STYLE, paddingLeft: '2.4rem' }} />
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center' }}>
+                  <Filter size={16} style={{ color: '#64748b' }} />
+                  {['All', 'Order Received', 'Processing', 'Confirmed', 'Ready', 'Out for Delivery', 'Delivered', 'Cancelled'].map((st) => (
+                    <button key={st} onClick={() => setSelectedStatus(st)}
+                      style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '600', border: 'none', cursor: 'pointer', backgroundColor: selectedStatus === st ? '#ea580c' : '#0f172a', color: selectedStatus === st ? '#ffffff' : '#94a3b8', transition: 'all 0.2s' }}>
+                      {st}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center' }}>
-                <Filter size={16} style={{ color: '#64748b' }} />
-                {['All', 'Order Received', 'Processing', 'Confirmed', 'Ready', 'Out for Delivery', 'Delivered', 'Cancelled'].map((st) => (
-                  <button key={st} onClick={() => setSelectedStatus(st)}
-                    style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '600', border: 'none', cursor: 'pointer', backgroundColor: selectedStatus === st ? '#ea580c' : '#0f172a', color: selectedStatus === st ? '#ffffff' : '#94a3b8', transition: 'all 0.2s' }}>
-                    {st}
-                  </button>
-                ))}
-              </div>
-            </div>
 
-            {error && <div style={{ padding: '1rem', backgroundColor: 'rgba(239,68,68,0.15)', border: '1px solid #ef4444', color: '#fca5a5', borderRadius: '10px', marginBottom: '1.5rem' }}>{error}</div>}
+              {error && <div style={{ padding: '1rem', backgroundColor: 'rgba(239,68,68,0.15)', border: '1px solid #ef4444', color: '#fca5a5', borderRadius: '10px', marginBottom: '1.5rem' }}>{error}</div>}
 
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '3rem 0', color: '#94a3b8' }}>
-                <RefreshCw size={32} className="spin-slow" style={{ marginBottom: '1rem', color: '#ea580c' }} />
-                <div>Loading orders...</div>
-              </div>
-            ) : filteredOrders.length === 0 ? (
-              <div style={{ ...CARD, textAlign: 'center', padding: '3rem' }}>
-                <Package size={48} style={{ color: '#475569', marginBottom: '1rem' }} />
-                <h3 style={{ color: '#ffffff', marginBottom: '0.5rem' }}>No Orders Found</h3>
-                <p style={{ fontSize: '0.9rem', color: '#94a3b8' }}>{searchQuery || selectedStatus !== 'All' ? 'Try clearing search or filters.' : 'No orders have been submitted yet.'}</p>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gap: '1.25rem' }}>
-                {filteredOrders.map((order) => {
-                  const badge = getStatusBadge(order.status);
-                  const cleanOrderId = (order.id || '').replace(/^#/, '').trim();
-                  const isUpdating = updatingId === cleanOrderId;
-                  const currentStatusVal = order.status === 'Completed' ? 'Delivered' : 
-                    (order.status === 'Enquiry Received' || order.status === 'Pending') ? 'Order Received' : 
-                    order.status === 'Food Ready' ? 'Ready' : order.status;
-                  return (
-                    <div key={order.id} style={{ ...CARD, transition: 'all 0.2s', opacity: isUpdating ? 0.85 : 1 }}>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #334155', marginBottom: '1rem' }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '1rem', fontWeight: '800', color: '#fb923c', fontFamily: 'monospace' }}>#{order.id}</span>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', backgroundColor: badge.bg, color: badge.text, padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '700' }}>
-                              {badge.icon}<span>{order.status}</span>
-                            </span>
-                            <span style={{ fontSize: '0.75rem', backgroundColor: order.paymentStatus === 'Paid' ? '#dcfce7' : '#fef3c7', color: order.paymentStatus === 'Paid' ? '#166534' : '#92400e', padding: '0.2rem 0.55rem', borderRadius: '4px', fontWeight: '600' }}>
-                              {order.paymentStatus}
-                            </span>
-                            {isUpdating && (
-                              <span style={{ fontSize: '0.75rem', color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontWeight: '600' }}>
-                                <RefreshCw size={12} className="spin-slow" /> Saving...
+              {loading ? (
+                <div style={{ textAlign: 'center', padding: '3rem 0', color: '#94a3b8' }}>
+                  <RefreshCw size={32} className="spin-slow" style={{ marginBottom: '1rem', color: '#ea580c' }} />
+                  <div>Loading orders...</div>
+                </div>
+              ) : filteredOrders.length === 0 ? (
+                <div style={{ ...CARD, textAlign: 'center', padding: '3rem' }}>
+                  <Package size={48} style={{ color: '#475569', marginBottom: '1rem' }} />
+                  <h3 style={{ color: '#ffffff', marginBottom: '0.5rem' }}>No Orders Found</h3>
+                  <p style={{ fontSize: '0.9rem', color: '#94a3b8' }}>{searchQuery || selectedStatus !== 'All' ? 'Try clearing search or filters.' : 'No orders have been submitted yet.'}</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: '1.25rem' }}>
+                  {filteredOrders.map((order) => {
+                    const badge = getStatusBadge(order.status);
+                    const cleanOrderId = (order.id || '').replace(/^#/, '').trim();
+                    const isUpdating = updatingId === cleanOrderId;
+                    const currentStatusVal = order.status === 'Completed' ? 'Delivered' :
+                      (order.status === 'Enquiry Received' || order.status === 'Pending') ? 'Order Received' :
+                        order.status === 'Food Ready' ? 'Ready' : order.status;
+                    return (
+                      <div key={order.id} style={{ ...CARD, transition: 'all 0.2s', opacity: isUpdating ? 0.85 : 1 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #334155', marginBottom: '1rem' }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '1rem', fontWeight: '800', color: '#fb923c', fontFamily: 'monospace' }}>#{order.id}</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', backgroundColor: badge.bg, color: badge.text, padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '700' }}>
+                                {badge.icon}<span>{order.status}</span>
                               </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.3rem' }}>
-                            Submitted: {new Date(order.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: '600' }}>Status:</span>
-                          <select value={currentStatusVal}
-                            disabled={isUpdating} onChange={(e) => handleStatusChange(order.id, e.target.value, order)}
-                            style={{ ...SELECT_STYLE, padding: '0.45rem 0.75rem', fontSize: '0.82rem', minWidth: '145px' }}>
-                            <option value="Order Received">Order Received</option>
-                            <option value="Confirmed">Confirmed</option>
-                            <option value="Processing">Processing</option>
-                            <option value="Ready">Food Ready</option>
-                            <option value="Out for Delivery">Out for Delivery</option>
-                            <option value="Delivered">Delivered</option>
-                            <option value="Cancelled">Cancelled</option>
-                          </select>
-
-                          {/* Quick Action: ACCEPT ORDER (Sets status to Confirmed) */}
-                          {(order.status === 'Order Received' || order.status === 'Enquiry Received' || order.status === 'Pending') && (
-                            <button type="button" onClick={() => handleStatusChange(order.id, 'Confirmed', order)} disabled={isUpdating}
-                              style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.85rem', fontSize: '0.78rem', fontWeight: '800', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 2px 8px rgba(22,163,74,0.35)' }}>
-                              <CheckCircle2 size={13} /><span>Accept Order</span>
-                            </button>
-                          )}
-
-                          {/* Quick Action: START COOKING (Confirmed -> Processing) */}
-                          {order.status === 'Confirmed' && (
-                            <button type="button" onClick={() => handleStatusChange(order.id, 'Processing', order)} disabled={isUpdating}
-                              style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                              <Clock size={12} /><span>Start Cooking</span>
-                            </button>
-                          )}
-
-                          {/* Quick Action: FOOD READY (Processing -> Ready) */}
-                          {order.status === 'Processing' && (
-                            <button type="button" onClick={() => handleStatusChange(order.id, 'Ready', order)} disabled={isUpdating}
-                              style={{ background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                              <UtensilsCrossed size={12} /><span>Food Ready</span>
-                            </button>
-                          )}
-
-                          {/* Quick Action: OUT FOR DELIVERY (Ready -> Out for Delivery) */}
-                          {order.status === 'Ready' && order.orderType === 'delivery' && (
-                            <button type="button" onClick={() => handleStatusChange(order.id, 'Out for Delivery', order)} disabled={isUpdating}
-                              style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                              <Package size={12} /><span>Out for Delivery</span>
-                            </button>
-                          )}
-
-                          {/* Quick Action: DELIVERED */}
-                          {order.status !== 'Delivered' && order.status !== 'Completed' && order.status !== 'Cancelled' && (
-                            <button type="button" onClick={() => handleStatusChange(order.id, 'Delivered', order)} disabled={isUpdating}
-                              style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                              <CheckCircle2 size={12} /><span>Delivered</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '1rem' }}>
-                        <div>
-                          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>
-                            Customer {order.orderType ? `• ${order.orderType.toUpperCase()}` : ''}
-                          </div>
-                          <div style={{ fontSize: '1.05rem', fontWeight: '700', color: '#ffffff' }}>{order.customerName}</div>
-                          <div style={{ fontSize: '0.88rem', color: '#cbd5e1', marginTop: '0.15rem' }}>📞 {order.phone}</div>
-                          {order.email && <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '0.1rem' }}>✉️ {order.email}</div>}
-                          {order.deliveryAddress && <div style={{ fontSize: '0.82rem', color: '#f59e0b', marginTop: '0.3rem', lineHeight: '1.4' }}>📍 {order.deliveryAddress}</div>}
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>Order Details</div>
-                          <div style={{ fontSize: '1rem', fontWeight: '700', color: '#ffffff' }}>{order.foodItem || 'Menu Order'}</div>
-                          <div style={{ fontSize: '0.88rem', color: '#ea580c', fontWeight: '700', marginTop: '0.2rem' }}>Qty: {order.quantity || 1}</div>
-                          {order.amount > 0 && <div style={{ fontSize: '1rem', fontWeight: '800', color: '#22c55e', marginTop: '0.3rem' }}>₹{order.amount}</div>}
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>Schedule</div>
-                          <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <Calendar size={14} style={{ color: '#ea580c' }} /><span>{order.preferredDate || 'Immediate'}</span>
-                          </div>
-                          <div style={{ fontSize: '0.82rem', color: '#cbd5e1', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <Clock size={13} style={{ color: '#94a3b8' }} /><span>{order.preferredTime || 'Immediate'}</span>
-                          </div>
-                          <span style={{ fontSize: '0.72rem', backgroundColor: '#334155', color: '#f1f5f9', padding: '0.15rem 0.5rem', borderRadius: '4px', marginTop: '0.35rem', display: 'inline-block', textTransform: 'capitalize' }}>
-                            {order.orderType || 'delivery'}
-                          </span>
-                        </div>
-                        {Array.isArray(order.items) && order.items.length > 0 && (
-                          <div style={{ gridColumn: '1 / -1', backgroundColor: '#0f172a', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #334155' }}>
-                            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>Items Breakdown:</div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                              {order.items.map((it, idx) => (
-                                <span key={idx} style={{ backgroundColor: '#1e293b', border: '1px solid #475569', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.82rem', color: '#f8fafc' }}>
-                                  <strong>{it.name}</strong> × {it.quantity} {it.price ? `(₹${it.price * it.quantity})` : ''}
+                              <span style={{ fontSize: '0.75rem', backgroundColor: order.paymentStatus === 'Paid' ? '#dcfce7' : '#fef3c7', color: order.paymentStatus === 'Paid' ? '#166534' : '#92400e', padding: '0.2rem 0.55rem', borderRadius: '4px', fontWeight: '600' }}>
+                                {order.paymentStatus}
+                              </span>
+                              {isUpdating && (
+                                <span style={{ fontSize: '0.75rem', color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontWeight: '600' }}>
+                                  <RefreshCw size={12} className="spin-slow" /> Saving...
                                 </span>
-                              ))}
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.3rem' }}>
+                              Submitted: {new Date(order.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                             </div>
                           </div>
-                        )}
-                      </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: '600' }}>Status:</span>
+                            <select value={currentStatusVal}
+                              disabled={isUpdating} onChange={(e) => handleStatusChange(order.id, e.target.value, order)}
+                              style={{ ...SELECT_STYLE, padding: '0.45rem 0.75rem', fontSize: '0.82rem', minWidth: '145px' }}>
+                              <option value="Order Received">Order Received</option>
+                              <option value="Confirmed">Confirmed</option>
+                              <option value="Processing">Processing</option>
+                              <option value="Ready">Food Ready</option>
+                              <option value="Out for Delivery">Out for Delivery</option>
+                              <option value="Delivered">Delivered</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </select>
 
-                      {order.specialInstructions && (
-                        <div style={{ backgroundColor: '#0f172a', borderLeft: '4px solid #ea580c', padding: '0.65rem 1rem', borderRadius: '0 8px 8px 0', marginBottom: '0.75rem', fontSize: '0.85rem', color: '#e2e8f0' }}>
-                          <strong style={{ color: '#fb923c' }}>Instructions: </strong>{order.specialInstructions}
+                            {/* Quick Action: ACCEPT ORDER (Sets status to Confirmed) */}
+                            {(order.status === 'Order Received' || order.status === 'Enquiry Received' || order.status === 'Pending') && (
+                              <button type="button" onClick={() => handleStatusChange(order.id, 'Confirmed', order)} disabled={isUpdating}
+                                style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.85rem', fontSize: '0.78rem', fontWeight: '800', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 2px 8px rgba(22,163,74,0.35)' }}>
+                                <CheckCircle2 size={13} /><span>Accept Order</span>
+                              </button>
+                            )}
+
+                            {/* Quick Action: START COOKING (Confirmed -> Processing) */}
+                            {order.status === 'Confirmed' && (
+                              <button type="button" onClick={() => handleStatusChange(order.id, 'Processing', order)} disabled={isUpdating}
+                                style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <Clock size={12} /><span>Start Cooking</span>
+                              </button>
+                            )}
+
+                            {/* Quick Action: FOOD READY (Processing -> Ready) */}
+                            {order.status === 'Processing' && (
+                              <button type="button" onClick={() => handleStatusChange(order.id, 'Ready', order)} disabled={isUpdating}
+                                style={{ background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <UtensilsCrossed size={12} /><span>Food Ready</span>
+                              </button>
+                            )}
+
+                            {/* Quick Action: OUT FOR DELIVERY (Ready -> Out for Delivery) */}
+                            {order.status === 'Ready' && order.orderType === 'delivery' && (
+                              <button type="button" onClick={() => handleStatusChange(order.id, 'Out for Delivery', order)} disabled={isUpdating}
+                                style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <Package size={12} /><span>Out for Delivery</span>
+                              </button>
+                            )}
+
+                            {/* Quick Action: DELIVERED */}
+                            {order.status !== 'Delivered' && order.status !== 'Completed' && order.status !== 'Cancelled' && (
+                              <button type="button" onClick={() => handleStatusChange(order.id, 'Delivered', order)} disabled={isUpdating}
+                                style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.42rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <CheckCircle2 size={12} /><span>Delivered</span>
+                              </button>
+                            )}
+
+                            {/* Delete Order Button */}
+                            <button type="button" onClick={() => handleDeleteOrder(order.id)} disabled={isUpdating}
+                              style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '6px', padding: '0.42rem 0.65rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', transition: 'all 0.2s' }}
+                              title="Delete Order Permanently">
+                              <Trash2 size={12} /><span>Delete</span>
+                            </button>
+                          </div>
                         </div>
-                      )}
 
-                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed #334155' }}>
-                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Track: <code style={{ color: '#cbd5e1' }}>/track-order?phone={order.phone}</code></div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <a href={`https://wa.me/91${order.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello ${order.customerName}, regarding your order #${order.id} with Sri Sai Lakshmi Mess...`)}`}
-                            target="_blank" rel="noopener noreferrer"
-                            style={{ backgroundColor: '#16a34a', color: '#ffffff', padding: '0.45rem 0.85rem', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <MessageCircle size={14} /><span>WhatsApp</span>
-                          </a>
-                          <a href={`tel:${order.phone}`}
-                            style={{ backgroundColor: '#2563eb', color: '#ffffff', padding: '0.45rem 0.85rem', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <Phone size={14} /><span>Call</span>
-                          </a>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '1rem' }}>
+                          <div>
+                            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>
+                              Customer {order.orderType ? `• ${order.orderType.toUpperCase()}` : ''}
+                            </div>
+                            <div style={{ fontSize: '1.05rem', fontWeight: '700', color: '#ffffff' }}>{order.customerName}</div>
+                            <div style={{ fontSize: '0.88rem', color: '#cbd5e1', marginTop: '0.15rem' }}>📞 {order.phone}</div>
+                            {order.email && <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '0.1rem' }}>✉️ {order.email}</div>}
+                            {order.deliveryAddress && <div style={{ fontSize: '0.82rem', color: '#f59e0b', marginTop: '0.3rem', lineHeight: '1.4' }}>📍 {order.deliveryAddress}</div>}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>Order Details</div>
+                            <div style={{ fontSize: '1rem', fontWeight: '700', color: '#ffffff' }}>{order.foodItem || 'Menu Order'}</div>
+                            <div style={{ fontSize: '0.88rem', color: '#ea580c', fontWeight: '700', marginTop: '0.2rem' }}>Qty: {order.quantity || 1}</div>
+                            {order.amount > 0 && <div style={{ fontSize: '1rem', fontWeight: '800', color: '#22c55e', marginTop: '0.3rem' }}>₹{order.amount}</div>}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>Schedule</div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <Calendar size={14} style={{ color: '#ea580c' }} /><span>{order.preferredDate || 'Immediate'}</span>
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: '#cbd5e1', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <Clock size={13} style={{ color: '#94a3b8' }} /><span>{order.preferredTime || 'Immediate'}</span>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', backgroundColor: '#334155', color: '#f1f5f9', padding: '0.15rem 0.5rem', borderRadius: '4px', marginTop: '0.35rem', display: 'inline-block', textTransform: 'capitalize' }}>
+                              {order.orderType || 'delivery'}
+                            </span>
+                          </div>
+                          {Array.isArray(order.items) && order.items.length > 0 && (
+                            <div style={{ gridColumn: '1 / -1', backgroundColor: '#0f172a', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #334155' }}>
+                              <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>Items Breakdown:</div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                {order.items.map((it, idx) => (
+                                  <span key={idx} style={{ backgroundColor: '#1e293b', border: '1px solid #475569', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.82rem', color: '#f8fafc' }}>
+                                    <strong>{it.name}</strong> × {it.quantity} {it.price ? `(₹${it.price * it.quantity})` : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* ════════════════════════════════════════════════
-            TAB: PROFIT & LOSS ANALYTICS (AI)
-        ════════════════════════════════════════════════ */}
-        {activeTab === 'analytics' && (
-          <ProfitLossAnalytics />
-        )}
-
-        {/* ════════════════════════════════════════════════
-            TAB 2: MENU MANAGEMENT
-        ════════════════════════════════════════════════ */}
-        {activeTab === 'menu' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-              <div>
-                <h2 style={{ color: '#ffffff', margin: 0, fontSize: '1.4rem', fontWeight: '800' }}>Menu Management</h2>
-                <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '0.25rem 0 0 0' }}>{menuItems.length} dishes — add, edit, or remove items</p>
-              </div>
-              <button onClick={openAddMenuItem} style={{ ...BTN_PRIMARY, padding: '0.7rem 1.25rem', fontSize: '0.9rem' }}>
-                <Plus size={17} /><span>Add New Dish</span>
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '1.1rem' }}>
-              {menuItems.map((item) => (
-                <div key={item.id} style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: '0.75rem', opacity: item.isAvailable ? 1 : 0.6 }}>
-                  {item.image && (
-                    <div style={{ borderRadius: '10px', overflow: 'hidden', height: '160px' }}>
-                      <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <span style={{ fontSize: '0.72rem', backgroundColor: '#0f172a', color: '#ea580c', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '700' }}>{item.category}</span>
-                      {item.isPopular && <span style={{ fontSize: '0.72rem', backgroundColor: '#fef3c7', color: '#92400e', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '700', marginLeft: '0.4rem' }}>⭐ Popular</span>}
-                    </div>
-                    <span style={{ fontSize: '1.15rem', fontWeight: '800', color: '#22c55e' }}>₹{item.price}</span>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: '700', color: '#ffffff' }}>{item.name}</div>
-                    {item.tamilName && <div style={{ fontSize: '0.82rem', color: '#fb923c' }}>{item.tamilName}</div>}
-                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', lineHeight: '1.4', marginTop: '0.3rem' }}>{item.description}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
-                    <div style={{ display: 'flex', gap: '0.35rem' }}>
-                      <span style={{ fontSize: '0.72rem', backgroundColor: item.isVegetarian ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: item.isVegetarian ? '#22c55e' : '#f87171', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '700' }}>
-                        {item.isVegetarian ? '🟢 Veg' : '🔴 Non-Veg'}
-                      </span>
-                      <span style={{ fontSize: '0.72rem', backgroundColor: item.isAvailable ? 'rgba(34,197,94,0.1)' : 'rgba(100,116,139,0.15)', color: item.isAvailable ? '#22c55e' : '#64748b', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '700' }}>
-                        {item.isAvailable ? 'Available' : 'Unavailable'}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.35rem' }}>
-                      <button onClick={() => openEditMenuItem(item)} style={BTN_BLUE}><Pencil size={13} /></button>
-                      <button onClick={() => handleDeleteMenuItem(item.id, item.name)} style={BTN_DANGER}><Trash2 size={13} /></button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Menu Item Modal */}
-            {showMenuModal && (
-              <Modal title={editingMenuItem ? 'Edit Menu Item' : 'Add New Dish'} onClose={() => setShowMenuModal(false)}>
-                {menuError && <div style={{ padding: '0.75rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#fca5a5', marginBottom: '1rem', fontSize: '0.85rem' }}>{menuError}</div>}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 1rem' }}>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <FormField label="Dish Name *">
-                      <input value={menuForm.name} onChange={e => setMenuForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Special Masala Dosa" style={INPUT_STYLE} />
-                    </FormField>
-                  </div>
-                  <FormField label="Tamil Name">
-                    <input value={menuForm.tamilName} onChange={e => setMenuForm(f => ({ ...f, tamilName: e.target.value }))} placeholder="தமிழ் பெயர்" style={INPUT_STYLE} />
-                  </FormField>
-                  <FormField label="Category *">
-                    <select value={menuForm.category} onChange={e => setMenuForm(f => ({ ...f, category: e.target.value }))} style={SELECT_STYLE}>
-                      {['Breakfast', 'Meals', 'Beverages', 'Snacks', 'Desserts', 'Specials'].map(c => <option key={c}>{c}</option>)}
-                    </select>
-                  </FormField>
-                  <FormField label="Price (₹) *">
-                    <input type="number" value={menuForm.price} onChange={e => setMenuForm(f => ({ ...f, price: e.target.value }))} placeholder="e.g. 50" style={INPUT_STYLE} min="0" />
-                  </FormField>
-                  <FormField label="Rating">
-                    <input type="number" value={menuForm.rating} onChange={e => setMenuForm(f => ({ ...f, rating: e.target.value }))} placeholder="e.g. 4.8" style={INPUT_STYLE} min="1" max="5" step="0.1" />
-                  </FormField>
-                  <FormField label="Portion / Serving">
-                    <input value={menuForm.portion} onChange={e => setMenuForm(f => ({ ...f, portion: e.target.value }))} placeholder="e.g. 2 Pcs" style={INPUT_STYLE} />
-                  </FormField>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <FormField label="Description">
-                      <textarea value={menuForm.description} onChange={e => setMenuForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe the dish..." rows={3}
-                        style={{ ...INPUT_STYLE, resize: 'vertical', fontFamily: 'inherit' }} />
-                    </FormField>
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <FormField label="Image URL">
-                      <input value={menuForm.image} onChange={e => setMenuForm(f => ({ ...f, image: e.target.value }))} placeholder="https://..." style={INPUT_STYLE} />
-                    </FormField>
-                  </div>
-                  <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                    {[
-                      { key: 'isVegetarian', label: '🟢 Vegetarian' },
-                      { key: 'isAvailable', label: '✅ Available' },
-                      { key: 'isPopular', label: '⭐ Popular' }
-                    ].map(({ key, label }) => (
-                      <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#cbd5e1', cursor: 'pointer', fontSize: '0.88rem', fontWeight: '600' }}>
-                        <input type="checkbox" checked={menuForm[key]} onChange={e => setMenuForm(f => ({ ...f, [key]: e.target.checked }))} style={{ width: '16px', height: '16px', accentColor: '#ea580c' }} />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-                  <button onClick={() => setShowMenuModal(false)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Cancel</button>
-                  <button onClick={handleSaveMenuItem} disabled={menuSaving}
-                    style={{ background: 'linear-gradient(135deg,#ea580c,#dc2626)', color: '#fff', border: 'none', padding: '0.7rem 1.5rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: menuSaving ? 0.7 : 1 }}>
-                    {menuSaving ? <RefreshCw size={16} className="spin-slow" /> : <Save size={16} />}
-                    <span>{menuSaving ? 'Saving...' : (editingMenuItem ? 'Update Dish' : 'Add Dish')}</span>
-                  </button>
-                </div>
-              </Modal>
-            )}
-          </div>
-        )}
-
-        {/* ════════════════════════════════════════════════
-            TAB 3: OFFERS MANAGEMENT
-        ════════════════════════════════════════════════ */}
-        {activeTab === 'offers' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-              <div>
-                <h2 style={{ color: '#ffffff', margin: 0, fontSize: '1.4rem', fontWeight: '800' }}>Offers & Promotions</h2>
-                <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '0.25rem 0 0 0' }}>
-                  {offers.filter(o => o.isActive).length} active • {offers.length} total
-                </p>
-              </div>
-              <button onClick={openAddOffer} style={{ ...BTN_PRIMARY, padding: '0.7rem 1.25rem', fontSize: '0.9rem', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}>
-                <Plus size={17} /><span>Create Offer</span>
-              </button>
-            </div>
-
-            {offers.length === 0 ? (
-              <div style={{ ...CARD, textAlign: 'center', padding: '3rem' }}>
-                <Tag size={48} style={{ color: '#475569', marginBottom: '1rem' }} />
-                <h3 style={{ color: '#ffffff' }}>No Offers Yet</h3>
-                <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Create your first promotional offer to attract more customers.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.1rem' }}>
-                {offers.map((offer) => (
-                  <div key={offer.id} style={{ ...CARD, borderColor: offer.isActive ? 'rgba(167,139,250,0.35)' : '#334155', opacity: offer.isActive ? 1 : 0.65 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                      <div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#ffffff' }}>{offer.title}</div>
-                        {offer.code && (
-                          <div style={{ marginTop: '0.3rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#0f172a', border: '1px dashed #a78bfa', borderRadius: '8px', padding: '0.3rem 0.75rem' }}>
-                            <Tag size={14} style={{ color: '#a78bfa' }} />
-                            <code style={{ color: '#a78bfa', fontWeight: '800', fontSize: '0.95rem', letterSpacing: '0.05em' }}>{offer.code}</code>
+                        {order.specialInstructions && (
+                          <div style={{ backgroundColor: '#0f172a', borderLeft: '4px solid #ea580c', padding: '0.65rem 1rem', borderRadius: '0 8px 8px 0', marginBottom: '0.75rem', fontSize: '0.85rem', color: '#e2e8f0' }}>
+                            <strong style={{ color: '#fb923c' }}>Instructions: </strong>{order.specialInstructions}
                           </div>
                         )}
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '1.5rem', fontWeight: '800', color: offer.discountType === 'percent' ? '#34d399' : '#fb923c' }}>
-                          {offer.discountType === 'percent' ? `${offer.discountValue}%` : `₹${offer.discountValue}`}
+
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed #334155' }}>
+                          <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Track: <code style={{ color: '#cbd5e1' }}>/track-order?phone={order.phone}</code></div>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <a href={`https://wa.me/91${order.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello ${order.customerName}, regarding your order #${order.id} with Sri Sai Lakshmi Mess...`)}`}
+                              target="_blank" rel="noopener noreferrer"
+                              style={{ backgroundColor: '#16a34a', color: '#ffffff', padding: '0.45rem 0.85rem', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <MessageCircle size={14} /><span>WhatsApp</span>
+                            </a>
+                            <a href={`tel:${order.phone}`}
+                              style={{ backgroundColor: '#2563eb', color: '#ffffff', padding: '0.45rem 0.85rem', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <Phone size={14} /><span>Call</span>
+                            </a>
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '600' }}>
-                          {offer.discountType === 'percent' ? 'PERCENT OFF' : 'FLAT OFF'}
-                        </div>
                       </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════
+            TAB: PROFIT & LOSS ANALYTICS (AI)
+        ════════════════════════════════════════════════ */}
+          {activeTab === 'analytics' && (
+            <ProfitLossAnalytics />
+          )}
+
+          {/* ════════════════════════════════════════════════
+            TAB 2: MENU MANAGEMENT
+        ════════════════════════════════════════════════ */}
+          {activeTab === 'menu' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h2 style={{ color: '#ffffff', margin: 0, fontSize: '1.4rem', fontWeight: '800' }}>Menu Management</h2>
+                  <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '0.25rem 0 0 0' }}>{menuItems.length} dishes — add, edit, or remove items</p>
+                </div>
+                <button onClick={openAddMenuItem} style={{ ...BTN_PRIMARY, padding: '0.7rem 1.25rem', fontSize: '0.9rem' }}>
+                  <Plus size={17} /><span>Add New Dish</span>
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '1.1rem' }}>
+                {menuItems.map((item) => (
+                  <div key={item.id} style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: '0.75rem', opacity: item.isAvailable ? 1 : 0.6 }}>
+                    {item.image && (
+                      <div style={{ borderRadius: '10px', overflow: 'hidden', height: '160px' }}>
+                        <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <span style={{ fontSize: '0.72rem', backgroundColor: '#0f172a', color: '#ea580c', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '700' }}>{item.category}</span>
+                        {item.isPopular && <span style={{ fontSize: '0.72rem', backgroundColor: '#fef3c7', color: '#92400e', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '700', marginLeft: '0.4rem' }}>⭐ Popular</span>}
+                      </div>
+                      <span style={{ fontSize: '1.15rem', fontWeight: '800', color: '#22c55e' }}>₹{item.price}</span>
                     </div>
-
-                    {offer.description && <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.5', margin: '0 0 0.75rem 0' }}>{offer.description}</p>}
-
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.9rem' }}>
-                      {offer.minOrderAmount > 0 && (
-                        <span style={{ fontSize: '0.72rem', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#94a3b8', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
-                          Min. ₹{offer.minOrderAmount}
-                        </span>
-                      )}
-                      {offer.validFrom && <span style={{ fontSize: '0.72rem', color: '#64748b', backgroundColor: '#0f172a', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>From {new Date(offer.validFrom).toLocaleDateString('en-IN')}</span>}
-                      {offer.validTo && <span style={{ fontSize: '0.72rem', color: '#64748b', backgroundColor: '#0f172a', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Until {new Date(offer.validTo).toLocaleDateString('en-IN')}</span>}
+                    <div>
+                      <div style={{ fontSize: '1.05rem', fontWeight: '700', color: '#ffffff' }}>{item.name}</div>
+                      {item.tamilName && <div style={{ fontSize: '0.82rem', color: '#fb923c' }}>{item.tamilName}</div>}
+                      <div style={{ fontSize: '0.8rem', color: '#94a3b8', lineHeight: '1.4', marginTop: '0.3rem' }}>{item.description}</div>
                     </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.75rem', borderTop: '1px solid #334155' }}>
-                      <button onClick={() => handleToggleOfferActive(offer)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: offer.isActive ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.15)', color: offer.isActive ? '#22c55e' : '#64748b', border: 'none', borderRadius: '8px', padding: '0.35rem 0.8rem', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' }}>
-                        {offer.isActive ? <Eye size={14} /> : <EyeOff size={14} />}
-                        {offer.isActive ? 'Active' : 'Inactive'}
-                      </button>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
                       <div style={{ display: 'flex', gap: '0.35rem' }}>
-                        <button onClick={() => openEditOffer(offer)} style={BTN_BLUE}><Pencil size={13} /></button>
-                        <button onClick={() => handleDeleteOffer(offer.id, offer.title)} style={BTN_DANGER}><Trash2 size={13} /></button>
+                        <span style={{ fontSize: '0.72rem', backgroundColor: item.isVegetarian ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: item.isVegetarian ? '#22c55e' : '#f87171', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '700' }}>
+                          {item.isVegetarian ? '🟢 Veg' : '🔴 Non-Veg'}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', backgroundColor: item.isAvailable ? 'rgba(34,197,94,0.1)' : 'rgba(100,116,139,0.15)', color: item.isAvailable ? '#22c55e' : '#64748b', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: '700' }}>
+                          {item.isAvailable ? 'Available' : 'Unavailable'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.35rem' }}>
+                        <button onClick={() => openEditMenuItem(item)} style={BTN_BLUE}><Pencil size={13} /></button>
+                        <button onClick={() => handleDeleteMenuItem(item.id, item.name)} style={BTN_DANGER}><Trash2 size={13} /></button>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
 
-            {/* Offer Modal */}
-            {showOfferModal && (
-              <Modal title={editingOffer ? 'Edit Offer' : 'Create New Offer'} onClose={() => setShowOfferModal(false)}>
-                {offerError && <div style={{ padding: '0.75rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#fca5a5', marginBottom: '1rem', fontSize: '0.85rem' }}>{offerError}</div>}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 1rem' }}>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <FormField label="Offer Title *">
-                      <input value={offerForm.title} onChange={e => setOfferForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Weekend Special Deal" style={INPUT_STYLE} />
+              {/* Menu Item Modal */}
+              {showMenuModal && (
+                <Modal title={editingMenuItem ? 'Edit Menu Item' : 'Add New Dish'} onClose={() => setShowMenuModal(false)}>
+                  {menuError && <div style={{ padding: '0.75rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#fca5a5', marginBottom: '1rem', fontSize: '0.85rem' }}>{menuError}</div>}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 1rem' }}>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <FormField label="Dish Name *">
+                        <input value={menuForm.name} onChange={e => setMenuForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Special Masala Dosa" style={INPUT_STYLE} />
+                      </FormField>
+                    </div>
+                    <FormField label="Tamil Name">
+                      <input value={menuForm.tamilName} onChange={e => setMenuForm(f => ({ ...f, tamilName: e.target.value }))} placeholder="தமிழ் பெயர்" style={INPUT_STYLE} />
                     </FormField>
-                  </div>
-                  <FormField label="Coupon Code">
-                    <input value={offerForm.code} onChange={e => setOfferForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} placeholder="e.g. SAVE20" style={{ ...INPUT_STYLE, fontFamily: 'monospace', letterSpacing: '0.08em' }} />
-                  </FormField>
-                  <FormField label="Discount Type">
-                    <select value={offerForm.discountType} onChange={e => setOfferForm(f => ({ ...f, discountType: e.target.value }))} style={SELECT_STYLE}>
-                      <option value="percent">Percentage (%)</option>
-                      <option value="flat">Flat Amount (₹)</option>
-                    </select>
-                  </FormField>
-                  <FormField label={`Discount Value ${offerForm.discountType === 'percent' ? '(%)' : '(₹)'} *`}>
-                    <input type="number" value={offerForm.discountValue} onChange={e => setOfferForm(f => ({ ...f, discountValue: e.target.value }))} placeholder={offerForm.discountType === 'percent' ? 'e.g. 15' : 'e.g. 30'} style={INPUT_STYLE} min="0" />
-                  </FormField>
-                  <FormField label="Min. Order Amount (₹)">
-                    <input type="number" value={offerForm.minOrderAmount} onChange={e => setOfferForm(f => ({ ...f, minOrderAmount: e.target.value }))} placeholder="0" style={INPUT_STYLE} min="0" />
-                  </FormField>
-                  <FormField label="Valid From">
-                    <input type="date" value={offerForm.validFrom} onChange={e => setOfferForm(f => ({ ...f, validFrom: e.target.value }))} style={INPUT_STYLE} />
-                  </FormField>
-                  <FormField label="Valid Until">
-                    <input type="date" value={offerForm.validTo} onChange={e => setOfferForm(f => ({ ...f, validTo: e.target.value }))} style={INPUT_STYLE} />
-                  </FormField>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <FormField label="Description">
-                      <textarea value={offerForm.description} onChange={e => setOfferForm(f => ({ ...f, description: e.target.value }))} placeholder="Offer details for customers..." rows={2}
-                        style={{ ...INPUT_STYLE, resize: 'vertical', fontFamily: 'inherit' }} />
+                    <FormField label="Category *">
+                      <select value={menuForm.category} onChange={e => setMenuForm(f => ({ ...f, category: e.target.value }))} style={SELECT_STYLE}>
+                        {['Breakfast', 'Meals', 'Beverages', 'Snacks', 'Desserts', 'Specials'].map(c => <option key={c}>{c}</option>)}
+                      </select>
                     </FormField>
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <FormField label="Banner Image URL (optional)">
-                      <input value={offerForm.imageUrl} onChange={e => setOfferForm(f => ({ ...f, imageUrl: e.target.value }))} placeholder="https://..." style={INPUT_STYLE} />
+                    <FormField label="Price (₹) *">
+                      <input type="number" value={menuForm.price} onChange={e => setMenuForm(f => ({ ...f, price: e.target.value }))} placeholder="e.g. 50" style={INPUT_STYLE} min="0" />
                     </FormField>
+                    <FormField label="Rating">
+                      <input type="number" value={menuForm.rating} onChange={e => setMenuForm(f => ({ ...f, rating: e.target.value }))} placeholder="e.g. 4.8" style={INPUT_STYLE} min="1" max="5" step="0.1" />
+                    </FormField>
+                    <FormField label="Portion / Serving">
+                      <input value={menuForm.portion} onChange={e => setMenuForm(f => ({ ...f, portion: e.target.value }))} placeholder="e.g. 2 Pcs" style={INPUT_STYLE} />
+                    </FormField>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <FormField label="Description">
+                        <textarea value={menuForm.description} onChange={e => setMenuForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe the dish..." rows={3}
+                          style={{ ...INPUT_STYLE, resize: 'vertical', fontFamily: 'inherit' }} />
+                      </FormField>
+                    </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <FormField label="Image URL">
+                        <input value={menuForm.image} onChange={e => setMenuForm(f => ({ ...f, image: e.target.value }))} placeholder="https://..." style={INPUT_STYLE} />
+                      </FormField>
+                    </div>
+                    <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                      {[
+                        { key: 'isVegetarian', label: '🟢 Vegetarian' },
+                        { key: 'isAvailable', label: '✅ Available' },
+                        { key: 'isPopular', label: '⭐ Popular' }
+                      ].map(({ key, label }) => (
+                        <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#cbd5e1', cursor: 'pointer', fontSize: '0.88rem', fontWeight: '600' }}>
+                          <input type="checkbox" checked={menuForm[key]} onChange={e => setMenuForm(f => ({ ...f, [key]: e.target.checked }))} style={{ width: '16px', height: '16px', accentColor: '#ea580c' }} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                  <div style={{ gridColumn: '1 / -1', marginBottom: '1rem' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#cbd5e1', cursor: 'pointer', fontSize: '0.88rem', fontWeight: '600' }}>
-                      <input type="checkbox" checked={offerForm.isActive} onChange={e => setOfferForm(f => ({ ...f, isActive: e.target.checked }))} style={{ width: '16px', height: '16px', accentColor: '#7c3aed' }} />
-                      ✅ Active (visible to customers immediately)
-                    </label>
+                  <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                    <button onClick={() => setShowMenuModal(false)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Cancel</button>
+                    <button onClick={handleSaveMenuItem} disabled={menuSaving}
+                      style={{ background: 'linear-gradient(135deg,#ea580c,#dc2626)', color: '#fff', border: 'none', padding: '0.7rem 1.5rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: menuSaving ? 0.7 : 1 }}>
+                      {menuSaving ? <RefreshCw size={16} className="spin-slow" /> : <Save size={16} />}
+                      <span>{menuSaving ? 'Saving...' : (editingMenuItem ? 'Update Dish' : 'Add Dish')}</span>
+                    </button>
                   </div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                  <button onClick={() => setShowOfferModal(false)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Cancel</button>
-                  <button onClick={handleSaveOffer} disabled={offerSaving}
-                    style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: '#fff', border: 'none', padding: '0.7rem 1.5rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: offerSaving ? 0.7 : 1 }}>
-                    {offerSaving ? <RefreshCw size={16} className="spin-slow" /> : <Save size={16} />}
-                    <span>{offerSaving ? 'Saving...' : (editingOffer ? 'Update Offer' : 'Create Offer')}</span>
-                  </button>
-                </div>
-              </Modal>
-            )}
-          </div>
-        )}
+                </Modal>
+              )}
+            </div>
+          )}
 
-        {/* ════════════════════════════════════════════════
+          {/* ════════════════════════════════════════════════
+            TAB 3: OFFERS MANAGEMENT
+        ════════════════════════════════════════════════ */}
+          {activeTab === 'offers' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h2 style={{ color: '#ffffff', margin: 0, fontSize: '1.4rem', fontWeight: '800' }}>Offers & Promotions</h2>
+                  <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '0.25rem 0 0 0' }}>
+                    {offers.filter(o => o.isActive).length} active • {offers.length} total
+                  </p>
+                </div>
+                <button onClick={openAddOffer} style={{ ...BTN_PRIMARY, padding: '0.7rem 1.25rem', fontSize: '0.9rem', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}>
+                  <Plus size={17} /><span>Create Offer</span>
+                </button>
+              </div>
+
+              {offers.length === 0 ? (
+                <div style={{ ...CARD, textAlign: 'center', padding: '3rem' }}>
+                  <Tag size={48} style={{ color: '#475569', marginBottom: '1rem' }} />
+                  <h3 style={{ color: '#ffffff' }}>No Offers Yet</h3>
+                  <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Create your first promotional offer to attract more customers.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.1rem' }}>
+                  {offers.map((offer) => (
+                    <div key={offer.id} style={{ ...CARD, borderColor: offer.isActive ? 'rgba(167,139,250,0.35)' : '#334155', opacity: offer.isActive ? 1 : 0.65 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                        <div>
+                          <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#ffffff' }}>{offer.title}</div>
+                          {offer.code && (
+                            <div style={{ marginTop: '0.3rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#0f172a', border: '1px dashed #a78bfa', borderRadius: '8px', padding: '0.3rem 0.75rem' }}>
+                              <Tag size={14} style={{ color: '#a78bfa' }} />
+                              <code style={{ color: '#a78bfa', fontWeight: '800', fontSize: '0.95rem', letterSpacing: '0.05em' }}>{offer.code}</code>
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: offer.discountType === 'percent' ? '#34d399' : '#fb923c' }}>
+                            {offer.discountType === 'percent' ? `${offer.discountValue}%` : `₹${offer.discountValue}`}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '600' }}>
+                            {offer.discountType === 'percent' ? 'PERCENT OFF' : 'FLAT OFF'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {offer.description && <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.5', margin: '0 0 0.75rem 0' }}>{offer.description}</p>}
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.9rem' }}>
+                        {offer.minOrderAmount > 0 && (
+                          <span style={{ fontSize: '0.72rem', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#94a3b8', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+                            Min. ₹{offer.minOrderAmount}
+                          </span>
+                        )}
+                        {offer.validFrom && <span style={{ fontSize: '0.72rem', color: '#64748b', backgroundColor: '#0f172a', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>From {new Date(offer.validFrom).toLocaleDateString('en-IN')}</span>}
+                        {offer.validTo && <span style={{ fontSize: '0.72rem', color: '#64748b', backgroundColor: '#0f172a', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Until {new Date(offer.validTo).toLocaleDateString('en-IN')}</span>}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.75rem', borderTop: '1px solid #334155' }}>
+                        <button onClick={() => handleToggleOfferActive(offer)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: offer.isActive ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.15)', color: offer.isActive ? '#22c55e' : '#64748b', border: 'none', borderRadius: '8px', padding: '0.35rem 0.8rem', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' }}>
+                          {offer.isActive ? <Eye size={14} /> : <EyeOff size={14} />}
+                          {offer.isActive ? 'Active' : 'Inactive'}
+                        </button>
+                        <div style={{ display: 'flex', gap: '0.35rem' }}>
+                          <button onClick={() => openEditOffer(offer)} style={BTN_BLUE}><Pencil size={13} /></button>
+                          <button onClick={() => handleDeleteOffer(offer.id, offer.title)} style={BTN_DANGER}><Trash2 size={13} /></button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Offer Modal */}
+              {showOfferModal && (
+                <Modal title={editingOffer ? 'Edit Offer' : 'Create New Offer'} onClose={() => setShowOfferModal(false)}>
+                  {offerError && <div style={{ padding: '0.75rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#fca5a5', marginBottom: '1rem', fontSize: '0.85rem' }}>{offerError}</div>}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 1rem' }}>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <FormField label="Offer Title *">
+                        <input value={offerForm.title} onChange={e => setOfferForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Weekend Special Deal" style={INPUT_STYLE} />
+                      </FormField>
+                    </div>
+                    <FormField label="Coupon Code">
+                      <input value={offerForm.code} onChange={e => setOfferForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} placeholder="e.g. SAVE20" style={{ ...INPUT_STYLE, fontFamily: 'monospace', letterSpacing: '0.08em' }} />
+                    </FormField>
+                    <FormField label="Discount Type">
+                      <select value={offerForm.discountType} onChange={e => setOfferForm(f => ({ ...f, discountType: e.target.value }))} style={SELECT_STYLE}>
+                        <option value="percent">Percentage (%)</option>
+                        <option value="flat">Flat Amount (₹)</option>
+                      </select>
+                    </FormField>
+                    <FormField label={`Discount Value ${offerForm.discountType === 'percent' ? '(%)' : '(₹)'} *`}>
+                      <input type="number" value={offerForm.discountValue} onChange={e => setOfferForm(f => ({ ...f, discountValue: e.target.value }))} placeholder={offerForm.discountType === 'percent' ? 'e.g. 15' : 'e.g. 30'} style={INPUT_STYLE} min="0" />
+                    </FormField>
+                    <FormField label="Min. Order Amount (₹)">
+                      <input type="number" value={offerForm.minOrderAmount} onChange={e => setOfferForm(f => ({ ...f, minOrderAmount: e.target.value }))} placeholder="0" style={INPUT_STYLE} min="0" />
+                    </FormField>
+                    <FormField label="Valid From">
+                      <input type="date" value={offerForm.validFrom} onChange={e => setOfferForm(f => ({ ...f, validFrom: e.target.value }))} style={INPUT_STYLE} />
+                    </FormField>
+                    <FormField label="Valid Until">
+                      <input type="date" value={offerForm.validTo} onChange={e => setOfferForm(f => ({ ...f, validTo: e.target.value }))} style={INPUT_STYLE} />
+                    </FormField>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <FormField label="Description">
+                        <textarea value={offerForm.description} onChange={e => setOfferForm(f => ({ ...f, description: e.target.value }))} placeholder="Offer details for customers..." rows={2}
+                          style={{ ...INPUT_STYLE, resize: 'vertical', fontFamily: 'inherit' }} />
+                      </FormField>
+                    </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <FormField label="Banner Image URL (optional)">
+                        <input value={offerForm.imageUrl} onChange={e => setOfferForm(f => ({ ...f, imageUrl: e.target.value }))} placeholder="https://..." style={INPUT_STYLE} />
+                      </FormField>
+                    </div>
+                    <div style={{ gridColumn: '1 / -1', marginBottom: '1rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#cbd5e1', cursor: 'pointer', fontSize: '0.88rem', fontWeight: '600' }}>
+                        <input type="checkbox" checked={offerForm.isActive} onChange={e => setOfferForm(f => ({ ...f, isActive: e.target.checked }))} style={{ width: '16px', height: '16px', accentColor: '#7c3aed' }} />
+                        ✅ Active (visible to customers immediately)
+                      </label>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                    <button onClick={() => setShowOfferModal(false)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Cancel</button>
+                    <button onClick={handleSaveOffer} disabled={offerSaving}
+                      style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: '#fff', border: 'none', padding: '0.7rem 1.5rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: offerSaving ? 0.7 : 1 }}>
+                      {offerSaving ? <RefreshCw size={16} className="spin-slow" /> : <Save size={16} />}
+                      <span>{offerSaving ? 'Saving...' : (editingOffer ? 'Update Offer' : 'Create Offer')}</span>
+                    </button>
+                  </div>
+                </Modal>
+              )}
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════
             TAB 5: CUSTOMER LOG
         ════════════════════════════════════════════════ */}
-        {activeTab === 'customers' && (
-          <div>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h2 style={{ color: '#ffffff', margin: 0, fontSize: '1.4rem', fontWeight: '800' }}>Registered Customers</h2>
-              <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '0.25rem 0 0 0' }}>{customers.length} registered customers</p>
-            </div>
+          {activeTab === 'customers' && (
+            <div>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h2 style={{ color: '#ffffff', margin: 0, fontSize: '1.4rem', fontWeight: '800' }}>Registered Customers</h2>
+                <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '0.25rem 0 0 0' }}>{customers.length} registered customers</p>
+              </div>
 
-            {customers.length === 0 ? (
-              <div style={{ ...CARD, textAlign: 'center', padding: '3rem' }}>
-                <Users size={48} style={{ color: '#475569', marginBottom: '1rem' }} />
-                <h3 style={{ color: '#ffffff' }}>No Customers Yet</h3>
-                <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Customers who sign up will appear here.</p>
-              </div>
-            ) : (
-              <div style={{ ...CARD, overflow: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #334155' }}>
-                      {['#', 'Name', 'Email', 'Phone', 'Joined On'].map(h => (
-                        <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {customers.map((c, i) => (
-                      <tr key={c.id} style={{ borderBottom: '1px solid #1e293b' }}>
-                        <td style={{ padding: '0.75rem 1rem', color: '#64748b', fontSize: '0.82rem' }}>{i + 1}</td>
-                        <td style={{ padding: '0.75rem 1rem', color: '#ffffff', fontWeight: '600', fontSize: '0.9rem' }}>{c.name}</td>
-                        <td style={{ padding: '0.75rem 1rem', color: '#94a3b8', fontSize: '0.85rem' }}>{c.email}</td>
-                        <td style={{ padding: '0.75rem 1rem', color: '#94a3b8', fontSize: '0.85rem' }}>{c.phone || '—'}</td>
-                        <td style={{ padding: '0.75rem 1rem', color: '#64748b', fontSize: '0.82rem' }}>
-                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' }) : '—'}
-                        </td>
+              {customers.length === 0 ? (
+                <div style={{ ...CARD, textAlign: 'center', padding: '3rem' }}>
+                  <Users size={48} style={{ color: '#475569', marginBottom: '1rem' }} />
+                  <h3 style={{ color: '#ffffff' }}>No Customers Yet</h3>
+                  <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Customers who sign up will appear here.</p>
+                </div>
+              ) : (
+                <div style={{ ...CARD, overflow: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #334155' }}>
+                        {['#', 'Name', 'Email', 'Phone', 'Joined On'].map(h => (
+                          <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em' }}>{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+                    </thead>
+                    <tbody>
+                      {customers.map((c, i) => (
+                        <tr key={c.id} style={{ borderBottom: '1px solid #1e293b' }}>
+                          <td style={{ padding: '0.75rem 1rem', color: '#64748b', fontSize: '0.82rem' }}>{i + 1}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#ffffff', fontWeight: '600', fontSize: '0.9rem' }}>{c.name}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#94a3b8', fontSize: '0.85rem' }}>{c.email}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#94a3b8', fontSize: '0.85rem' }}>{c.phone || '—'}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#64748b', fontSize: '0.82rem' }}>
+                            {c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' }) : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       </main>

@@ -255,3 +255,23 @@ exports.getAdminStats = async (req, res, next) => {
   }
 };
 
+/**
+ * DELETE /api/orders/:id — Admin: Delete order
+ */
+exports.deleteOrder = async (req, res, next) => {
+  try {
+    const rawId = req.params.id;
+    if (!rawId) {
+      return res.status(400).json({ success: false, message: 'Order ID is required.' });
+    }
+    const cleanId = String(rawId).replace(/^#/, '').trim();
+    await orderService.deleteOrder(cleanId);
+    return res.status(200).json({
+      success: true,
+      message: `Order #${cleanId} deleted successfully.`
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
