@@ -2,14 +2,62 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 
 const AuthContext = createContext(null);
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+// Always use the Render backend directly for auth to avoid Netlify SPA HTML intercept
+const RENDER_API = 'https://srisailakshmimess.onrender.com/api';
+const LOCAL_API = import.meta.env.VITE_API_URL || '/api';
+
+function getAuthApiBase() {
+  // On Netlify, Netlify's redirect rules may serve HTML for /api/* paths
+  // so we always point auth directly at the Render backend
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('netlify.app')) {
+    return RENDER_API;
+  }
+  return LOCAL_API;
+}
+
+async function authFetch(path, options = {}) {
+  const base = getAuthApiBase();
+  const url = `${base}${path}`;
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...(options.headers || {})
+  };
+
+  const res = await fetch(url, { ...options, headers });
+  const contentType = res.headers.get('content-type') || '';
+
+  // If we get HTML back (e.g. Netlify SPA fallback), retry directly on Render
+  if (!contentType.includes('application/json')) {
+    if (base !== RENDER_API) {
+      const retryRes = await fetch(`${RENDER_API}${path}`, { ...options, headers });
+      const retryType = retryRes.headers.get('content-type') || '';
+      if (!retryType.includes('application/json')) {
+        throw new Error('Server is unavailable. Please try again later.');
+      }
+      const retryJson = await retryRes.json();
+      if (!retryRes.ok) throw new Error(retryJson.message || `Request failed (${retryRes.status})`);
+      return retryJson;
+    }
+    throw new Error('Server is unavailable. Please try again later.');
+  }
+
+  const json = await res.json();
+  if (!res.ok) {
+    const msg = json.errors
+      ? (Array.isArray(json.errors) ? json.errors.join(' ') : json.errors)
+      : (json.message || `Request failed (${res.status})`);
+    throw new Error(msg);
+  }
+  return json;
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem('ssl_auth_token'));
   const [loading, setLoading] = useState(true);
 
-  // On mount, verify token with server and load user
+  // On mount, verify token with server and restore user
   useEffect(() => {
     const verifyToken = async () => {
       const storedToken = localStorage.getItem('ssl_auth_token');
@@ -19,31 +67,18 @@ export function AuthProvider({ children }) {
       }
 
       try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${storedToken}`,
-            'Accept': 'application/json'
-          }
+        const json = await authFetch('/auth/me', {
+          headers: { Authorization: `Bearer ${storedToken}` }
         });
-        const contentType = res.headers.get('content-type') || '';
-        if (res.ok && contentType.includes('application/json')) {
-          const json = await res.json();
-          setUser(json.user);
-          setToken(storedToken);
-          localStorage.setItem('ssl_user', JSON.stringify(json.user));
-        } else {
-          // Token invalid or expired — clear everything
-          localStorage.removeItem('ssl_auth_token');
-          localStorage.removeItem('ssl_user');
-          setToken(null);
-          setUser(null);
-        }
+        setUser(json.user);
+        setToken(storedToken);
+        localStorage.setItem('ssl_user', JSON.stringify(json.user));
       } catch (_) {
-        // Network error — try to restore from cached user (read-only, no sensitive data)
+        // Token invalid/expired OR network error — try cached user (read-only, no password)
         try {
           const cachedUser = JSON.parse(localStorage.getItem('ssl_user') || 'null');
           if (cachedUser) setUser(cachedUser);
-        } catch (_) { }
+        } catch (_) {}
       } finally {
         setLoading(false);
       }
@@ -61,21 +96,10 @@ export function AuthProvider({ children }) {
       password = arg2;
     }
 
-    const res = await fetch(`${API_BASE}/auth/login`, {
+    const json = await authFetch('/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-
-    const contentType = res.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      throw new Error('Server is unavailable. Please try again later.');
-    }
-
-    const json = await res.json();
-    if (!res.ok) {
-      throw new Error(json.message || 'Invalid email or password.');
-    }
 
     localStorage.setItem('ssl_auth_token', json.token);
     localStorage.setItem('ssl_user', JSON.stringify(json.user));
@@ -85,24 +109,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   const register = useCallback(async ({ name, email, phone, password }, autoLogin = false) => {
-    const res = await fetch(`${API_BASE}/auth/register`, {
+    const json = await authFetch('/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ name, email, phone, password })
     });
-
-    const contentType = res.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      throw new Error('Server is unavailable. Please try again later.');
-    }
-
-    const json = await res.json();
-    if (!res.ok) {
-      const msg = json.errors
-        ? (Array.isArray(json.errors) ? json.errors.join(' ') : json.errors)
-        : (json.message || 'Registration failed.');
-      throw new Error(msg);
-    }
 
     if (autoLogin) {
       localStorage.setItem('ssl_auth_token', json.token);

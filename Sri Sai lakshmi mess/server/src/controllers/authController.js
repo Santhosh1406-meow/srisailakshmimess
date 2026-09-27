@@ -1,8 +1,6 @@
 const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'srilakshmi_mess_secret_2024_change_in_prod';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const { jwtSecret: JWT_SECRET, jwtExpiresIn: JWT_EXPIRES_IN } = require('../config');
 
 /**
  * Generate a signed JWT for a user
