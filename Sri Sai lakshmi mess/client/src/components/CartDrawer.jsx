@@ -196,23 +196,38 @@ export default function CartDrawer() {
         return;
       }
 
-      // 2. Online Payment via Razorpay
+      // 2. Online Payment via Razorpay Standard Checkout
       try {
+        const amountInPaise = Math.round(grandTotal * 100);
         const paymentData = await createPaymentOrder({
           orderId: createdOrder.id,
-          amount: grandTotal
+          amount: amountInPaise
         });
 
-        // Check if Razorpay SDK is loaded on window
-        if (typeof window.Razorpay !== 'undefined' && paymentData?.keyId && paymentData.keyId !== 'DEMO_KEY') {
+        const activeKeyId =
+          paymentData?.keyId ||
+          paymentData?.data?.keyId ||
+          import.meta.env.VITE_RAZORPAY_KEY_ID;
+        const razorpayOrderId =
+          paymentData?.order_id ||
+          paymentData?.razorpayOrderId ||
+          paymentData?.id ||
+          paymentData?.data?.order_id;
+        const paymentAmount =
+          paymentData?.amount ||
+          paymentData?.data?.amount ||
+          amountInPaise;
+
+        // Check if Razorpay SDK is loaded on window and we have valid order info
+        if (typeof window.Razorpay !== 'undefined' && activeKeyId && razorpayOrderId) {
           const options = {
-            key: paymentData.keyId,
-            amount: paymentData.amount,
+            key: activeKeyId,
+            amount: paymentAmount,
             currency: 'INR',
             name: 'Sri Sai Lakshmi Mess',
             description: `Order #${createdOrder.id}`,
             image: '/logo.png',
-            order_id: paymentData.razorpayOrderId,
+            order_id: razorpayOrderId,
             prefill: {
               name: customerName,
               email: email || 'customer@srisailakshmi.com',
@@ -223,6 +238,7 @@ export default function CartDrawer() {
             },
             handler: async (response) => {
               try {
+                setLoading(true);
                 await verifyPayment({
                   razorpayOrderId: response.razorpay_order_id,
                   razorpayPaymentId: response.razorpay_payment_id,
@@ -235,25 +251,38 @@ export default function CartDrawer() {
                 setStep('success');
                 triggerConfetti();
               } catch (verifyErr) {
-                setError('Payment verification failed: ' + verifyErr.message);
+                setError('Payment verification failed: ' + (verifyErr.message || 'Signature mismatch'));
+              } finally {
+                setLoading(false);
               }
             },
             modal: {
               ondismiss: () => {
                 setLoading(false);
-                setError('Payment cancelled. Your order remains pending.');
+                setError('Payment modal closed. You can retry payment anytime.');
               }
             }
           };
 
           const rzp = new window.Razorpay(options);
+
+          // Handle payment failure event as required
+          rzp.on('payment.failed', function (failureResponse) {
+            console.error('Razorpay payment failed:', failureResponse.error);
+            setLoading(false);
+            const failureReason =
+              failureResponse.error?.description ||
+              failureResponse.error?.reason ||
+              'Payment failed. Please try again.';
+            setError(`Payment Failed: ${failureReason}`);
+          });
+
           rzp.open();
           return;
         } else {
-          // Demo Mode or Razorpay key not configured in backend:
-          // Simulate instant online payment success for seamless testing!
+          // Fallback if Razorpay SDK was blocked or demo mode
           await verifyPayment({
-            razorpayOrderId: paymentData?.razorpayOrderId || `order_DEMO_${Date.now()}`,
+            razorpayOrderId: razorpayOrderId || `order_DEMO_${Date.now()}`,
             razorpayPaymentId: `pay_DEMO_${Date.now()}`,
             razorpaySignature: 'demo_signature',
             orderId: createdOrder.id
@@ -266,11 +295,8 @@ export default function CartDrawer() {
         }
       } catch (payErr) {
         console.warn('Online payment flow notice:', payErr);
-        // Fallback: Order is placed, mark for payment on delivery
-        setConfirmedOrder(createdOrder);
-        clearCart();
-        setStep('success');
-        triggerConfetti();
+        setError('Payment error: ' + (payErr.message || 'Could not initiate payment.'));
+        setLoading(false);
       }
     } catch (err) {
       console.error('Failed to submit order:', err);

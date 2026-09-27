@@ -8,7 +8,8 @@ router.get('/config', paymentController.getPaymentConfig);
 // POST /api/payments/create-order — Create Razorpay order for an existing mess order
 router.post('/create-order', paymentController.createPaymentOrder);
 
-// POST /api/payments/verify — Verify Razorpay payment signature
+// POST /api/payments/verify & /api/payments/verify-payment — Verify Razorpay payment signature
 router.post('/verify', paymentController.verifyPayment);
+router.post('/verify-payment', paymentController.verifyPayment);
 
 module.exports = router;

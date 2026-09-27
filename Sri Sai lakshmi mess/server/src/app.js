@@ -10,6 +10,7 @@ const menuRoutes = require('./routes/menuRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const authRoutes = require('./routes/authRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const paymentController = require('./controllers/paymentController');
 const offerRoutes = require('./routes/offerRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 
@@ -83,6 +84,8 @@ app.use('/api/health', healthRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
+app.post('/api/create-order', paymentController.createPaymentOrder);
+app.post('/api/verify-payment', paymentController.verifyPayment);
 app.use('/api/offers', offerRoutes);
 app.use('/api/analytics', analyticsRoutes);
 

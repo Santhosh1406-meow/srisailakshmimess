@@ -437,46 +437,68 @@ export const getAllCustomers = async () => {
 
 export const getPaymentConfig = async () => {
   try {
-    return await safeFetchJson(`${API_BASE_URL}/payments/config`);
+    const res = await safeFetchJson(`${API_BASE_URL}/payments/config`);
+    return res;
   } catch (error) {
     return {
       success: true,
-      keyId: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+      keyId: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
       currency: 'INR'
     };
   }
 };
 
-export const createPaymentOrder = async ({ orderId, amount }) => {
+export const createPaymentOrder = async ({ orderId, amount, currency = 'INR', receipt }) => {
+  // Amount in paise (Razorpay standard: min 100 paise)
+  const num = Number(amount);
+  const amountInPaise = num < 100 ? Math.round(num * 100) : Math.round(num);
+
+  const payload = {
+    amount: amountInPaise,
+    currency,
+    receipt: receipt || (orderId ? `receipt_${orderId}` : `receipt_${Date.now()}`),
+    orderId
+  };
+
   try {
-    const json = await safeFetchJson(`${API_BASE_URL}/payments/create-order`, {
+    const json = await safeFetchJson(`${API_BASE_URL}/create-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-      body: JSON.stringify({ orderId, amount })
+      body: JSON.stringify(payload)
     });
-    return json.data;
-  } catch (error) {
-    return {
-      id: 'order_demo_' + Date.now(),
-      amount: amount * 100,
-      currency: 'INR'
-    };
+    return json;
+  } catch (err) {
+    // Fallback attempt to /payments/create-order
+    return await safeFetchJson(`${API_BASE_URL}/payments/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(payload)
+    });
   }
 };
 
 export const verifyPayment = async ({ razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId }) => {
+  const payload = {
+    order_id: razorpayOrderId,
+    payment_id: razorpayPaymentId,
+    razorpay_signature: razorpaySignature,
+    razorpay_order_id: razorpayOrderId,
+    razorpay_payment_id: razorpayPaymentId,
+    orderId
+  };
+
   try {
+    return await safeFetchJson(`${API_BASE_URL}/verify-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
     return await safeFetchJson(`${API_BASE_URL}/payments/verify`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId })
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(payload)
     });
-  } catch (error) {
-    return {
-      success: true,
-      message: 'Payment recorded (Demo Mode)',
-      verified: true
-    };
   }
 };
 
