@@ -200,7 +200,7 @@ class OrderService {
   }
 
   async updateOrderStatus(id, status) {
-    const cleanId = (id || '').trim().toUpperCase();
+    const cleanId = String(id || '').replace(/^#/, '').trim().toUpperCase();
     const deliveredAt = (status === 'Delivered' || status === 'Completed') ? new Date().toISOString() : null;
     let dbUpdatedOrder = null;
 
@@ -211,7 +211,7 @@ class OrderService {
           SET status = $1, 
               delivered_at = CASE WHEN $2::text IS NOT NULL THEN CURRENT_TIMESTAMP ELSE delivered_at END,
               updated_at = CURRENT_TIMESTAMP
-          WHERE UPPER(id) = UPPER($3)
+          WHERE UPPER(TRIM(id)) = UPPER(TRIM($3))
           RETURNING *
         `, [status, deliveredAt, cleanId]);
         if (res && res.rows && res.rows.length > 0) {
@@ -222,15 +222,70 @@ class OrderService {
       }
     }
 
-    const orderIndex = this.orders.findIndex((o) => (o.id || '').toUpperCase() === cleanId);
+    const orderIndex = this.orders.findIndex((o) => (o.id || '').replace(/^#/, '').trim().toUpperCase() === cleanId);
+    
+    // If order was in local memory but not yet in Neon DB, persist it to Neon DB now
+    if (isDbConnected() && !dbUpdatedOrder && orderIndex !== -1) {
+      try {
+        const orderToInsert = this.orders[orderIndex];
+        orderToInsert.status = status;
+        if (deliveredAt) orderToInsert.deliveredAt = deliveredAt;
+        orderToInsert.updatedAt = new Date().toISOString();
+        const insertRes = await query(`
+          INSERT INTO orders (
+            id, customer_name, phone, email, food_item, quantity,
+            preferred_date, preferred_time, special_instructions,
+            order_type, delivery_address, status, user_id,
+            payment_status, payment_id, razorpay_order_id, amount,
+            items, delivered_at, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+          ON CONFLICT (id) DO UPDATE 
+          SET status = EXCLUDED.status, 
+              delivered_at = CASE WHEN EXCLUDED.delivered_at IS NOT NULL THEN EXCLUDED.delivered_at ELSE orders.delivered_at END,
+              updated_at = CURRENT_TIMESTAMP
+          RETURNING *;
+        `, [
+          orderToInsert.id,
+          orderToInsert.customerName || 'Customer',
+          orderToInsert.phone || '9999999999',
+          orderToInsert.email || '',
+          orderToInsert.foodItem || 'Food Order',
+          orderToInsert.quantity || 1,
+          orderToInsert.preferredDate || new Date().toISOString().split('T')[0],
+          orderToInsert.preferredTime || '',
+          orderToInsert.specialInstructions || '',
+          orderToInsert.orderType || 'delivery',
+          orderToInsert.deliveryAddress || '',
+          orderToInsert.status,
+          orderToInsert.userId || null,
+          orderToInsert.paymentStatus || 'Pay on Delivery',
+          orderToInsert.paymentId || null,
+          orderToInsert.razorpayOrderId || null,
+          orderToInsert.amount || 0,
+          JSON.stringify(orderToInsert.items || []),
+          orderToInsert.deliveredAt || null,
+          orderToInsert.createdAt || new Date().toISOString(),
+          orderToInsert.updatedAt
+        ]);
+        if (insertRes && insertRes.rows && insertRes.rows.length > 0) {
+          dbUpdatedOrder = rowToOrder(insertRes.rows[0]);
+        }
+      } catch (insErr) {
+        console.warn('[OrderService] Could not upsert order into Neon DB:', insErr.message);
+      }
+    }
+
     if (orderIndex !== -1) {
       this.orders[orderIndex].status = status;
       if (deliveredAt) {
         this.orders[orderIndex].deliveredAt = deliveredAt;
       }
       this.orders[orderIndex].updatedAt = new Date().toISOString();
+      if (dbUpdatedOrder) {
+        this.orders[orderIndex] = dbUpdatedOrder;
+      }
       this._persist();
-      return dbUpdatedOrder || this.orders[orderIndex];
+      return this.orders[orderIndex];
     } else if (dbUpdatedOrder) {
       this.orders.unshift(dbUpdatedOrder);
       this._persist();

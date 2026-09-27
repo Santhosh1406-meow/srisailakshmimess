@@ -1,1 +1,53 @@
-[]
+[
+  {
+    "id": "ORD-1790146217507-9547",
+    "customerName": "Santhosh",
+    "phone": "6383034188",
+    "email": "santhoshs14277@gmail.com",
+    "foodItem": "South Indian Special Meals (x1), Crispy Medu Vada (2 Pcs) (x1), Special Masala Dosa (x1)",
+    "quantity": 3,
+    "preferredDate": "2026-09-23",
+    "preferredTime": "Immediate (30-45 mins)",
+    "specialInstructions": "",
+    "orderType": "delivery",
+    "deliveryAddress": "142/raju street ,, Rathanavillas, Sivakasi",
+    "status": "Processing",
+    "userId": "USR-1790146040767-3103",
+    "paymentStatus": "Pay on Delivery",
+    "paymentId": null,
+    "razorpayOrderId": null,
+    "amount": 190,
+    "items": [
+      {
+        "id": "dish-01",
+        "name": "South Indian Special Meals",
+        "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ-Fp1bqwXmz1vcZud4i9gF6qloN9ECrLnT3xdg5VID7zGubM0Polualj0&s=10",
+        "price": 100,
+        "quantity": 1,
+        "tamilName": "தென்னிந்திய சாப்பாடு",
+        "isVegetarian": true
+      },
+      {
+        "id": "dish-04",
+        "name": "Crispy Medu Vada (2 Pcs)",
+        "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRTMnVTp3tMewd-MyqwaiD-fitqeIlr8l5T8tIjHh-MjA&s",
+        "price": 15,
+        "quantity": 1,
+        "tamilName": "மெது வடை",
+        "isVegetarian": true
+      },
+      {
+        "id": "dish-05",
+        "name": "Special Masala Dosa",
+        "image": "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=800&q=80",
+        "price": 50,
+        "quantity": 1,
+        "tamilName": "ஸ்பெஷல் மசாலா தோசை",
+        "isVegetarian": true
+      }
+    ],
+    "deliveredAt": "2026-09-27T15:58:48.254Z",
+    "createdAt": "2026-09-23T06:50:17.507Z",
+    "updatedAt": "2026-09-27T16:05:28.884Z"
+  }
+]

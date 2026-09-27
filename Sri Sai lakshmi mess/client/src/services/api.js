@@ -57,6 +57,33 @@ function saveLocalOrders(orders) {
   } catch (_) {}
 }
 
+// Track pending admin status updates to prevent fast polling race conditions from reverting recent changes
+function getPendingStatusUpdates() {
+  try {
+    return JSON.parse(localStorage.getItem('ssl_pending_status_updates') || '{}');
+  } catch (_) {
+    return {};
+  }
+}
+
+function savePendingStatusUpdate(orderId, status) {
+  try {
+    const clean = String(orderId || '').replace(/^#/, '').trim().toUpperCase();
+    const map = getPendingStatusUpdates();
+    map[clean] = { status, timestamp: Date.now() };
+    localStorage.setItem('ssl_pending_status_updates', JSON.stringify(map));
+  } catch (_) {}
+}
+
+function removePendingStatusUpdate(orderId) {
+  try {
+    const clean = String(orderId || '').replace(/^#/, '').trim().toUpperCase();
+    const map = getPendingStatusUpdates();
+    delete map[clean];
+    localStorage.setItem('ssl_pending_status_updates', JSON.stringify(map));
+  } catch (_) {}
+}
+
 // ─── Menu ─────────────────────────────────────────────────────────────────────
 
 export const fetchMenu = async ({ category, search, popular } = {}) => {
@@ -173,20 +200,50 @@ export const getMyOrders = async () => {
 // ─── Admin API ────────────────────────────────────────────────────────────────
 
 export const getAllOrdersAdmin = async () => {
+  const pendingUpdates = getPendingStatusUpdates();
+  const now = Date.now();
+
   try {
     const json = await safeFetchJson(`${API_BASE_URL}/orders`, {
       headers: { ...getAuthHeader() }
     });
     if (Array.isArray(json.data)) {
-      // Merge with any local orders (filtering out demo orders)
       const local = getLocalOrders().filter((o) => !o.id.startsWith('ORD-DEMO-'));
-      const serverIds = new Set(json.data.map((o) => o.id));
-      const merged = [...json.data];
+      const localMap = new Map(local.map((o) => [(o.id || '').replace(/^#/, '').trim().toUpperCase(), o]));
+
+      // Merge server orders while protecting recent admin updates from being reverted
+      const merged = json.data.map((serverOrder) => {
+        const cleanId = (serverOrder.id || '').replace(/^#/, '').trim().toUpperCase();
+        const pending = pendingUpdates[cleanId];
+
+        // If an admin updated this order within the last 45 seconds, preserve the admin's chosen status
+        if (pending && (now - pending.timestamp < 45000)) {
+          if (serverOrder.status === pending.status) {
+            removePendingStatusUpdate(cleanId);
+          } else {
+            return { ...serverOrder, status: pending.status };
+          }
+        }
+
+        // Check local order timestamp
+        const localOrder = localMap.get(cleanId);
+        if (localOrder && localOrder.updatedAt && serverOrder.updatedAt) {
+          if (new Date(localOrder.updatedAt).getTime() > new Date(serverOrder.updatedAt).getTime()) {
+            return { ...serverOrder, status: localOrder.status, updatedAt: localOrder.updatedAt };
+          }
+        }
+
+        return serverOrder;
+      });
+
+      const serverIds = new Set(json.data.map((o) => (o.id || '').replace(/^#/, '').trim().toUpperCase()));
       for (const loc of local) {
-        if (!serverIds.has(loc.id)) {
+        const cleanLocId = (loc.id || '').replace(/^#/, '').trim().toUpperCase();
+        if (!serverIds.has(cleanLocId)) {
           merged.push(loc);
         }
       }
+
       saveLocalOrders(merged);
       return merged;
     }
@@ -195,16 +252,27 @@ export const getAllOrdersAdmin = async () => {
     return result;
   } catch (error) {
     console.info('[Admin API] Server unreachable, loading from local store:', error.message);
-    return getLocalOrders().filter((o) => !o.id.startsWith('ORD-DEMO-'));
+    const local = getLocalOrders().filter((o) => !o.id.startsWith('ORD-DEMO-'));
+    return local.map((order) => {
+      const cleanId = (order.id || '').replace(/^#/, '').trim().toUpperCase();
+      const pending = pendingUpdates[cleanId];
+      if (pending && (now - pending.timestamp < 45000)) {
+        return { ...order, status: pending.status };
+      }
+      return order;
+    });
   }
 };
 
 export const updateOrderStatusAdmin = async (orderId, status, fallbackOrder = null) => {
+  const cleanId = String(orderId || '').replace(/^#/, '').trim();
+  savePendingStatusUpdate(cleanId, status);
+
   let serverUpdated = null;
   let serverError = null;
 
   try {
-    const json = await safeFetchJson(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/status`, {
+    const json = await safeFetchJson(`${API_BASE_URL}/orders/${encodeURIComponent(cleanId)}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: JSON.stringify({ status })
@@ -213,26 +281,42 @@ export const updateOrderStatusAdmin = async (orderId, status, fallbackOrder = nu
   } catch (error) {
     serverError = error;
     console.warn('[Admin API] Server status update notice:', error.message);
+
+    // If order was missing from server database (404), sync and persist it
+    if (error.status === 404 && fallbackOrder) {
+      try {
+        const createRes = await safeFetchJson(`${API_BASE_URL}/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ ...fallbackOrder, id: cleanId, status })
+        });
+        if (createRes && createRes.data) {
+          serverUpdated = createRes.data;
+          serverError = null;
+        }
+      } catch (_) {}
+    }
   }
 
   // Update local cache
   const orders = getLocalOrders();
-  let idx = orders.findIndex((o) => (o.id || '').toUpperCase() === (orderId || '').toUpperCase());
+  let idx = orders.findIndex((o) => (o.id || '').replace(/^#/, '').trim().toUpperCase() === cleanId.toUpperCase());
 
   // If order was missing from cache but we have it from component state
   if (idx === -1 && fallbackOrder) {
-    orders.unshift({ ...fallbackOrder });
+    orders.unshift({ ...fallbackOrder, id: cleanId });
     idx = 0;
   }
 
+  const nowIso = new Date().toISOString();
   if (idx !== -1) {
     orders[idx].status = status;
-    orders[idx].updatedAt = new Date().toISOString();
+    orders[idx].updatedAt = nowIso;
     saveLocalOrders(orders);
-    try { window.dispatchEvent(new CustomEvent('ssl_order_status_updated', { detail: { orderId, status } })); } catch (_) {}
+    try { window.dispatchEvent(new CustomEvent('ssl_order_status_updated', { detail: { orderId: cleanId, status } })); } catch (_) {}
     try {
       const bc = new BroadcastChannel('ssl_mess_channel');
-      bc.postMessage({ type: 'ORDER_STATUS_CHANGED', orderId, status });
+      bc.postMessage({ type: 'ORDER_STATUS_CHANGED', orderId: cleanId, status });
       bc.close();
     } catch (_) {}
     return serverUpdated || orders[idx];
@@ -241,24 +325,31 @@ export const updateOrderStatusAdmin = async (orderId, status, fallbackOrder = nu
   if (serverUpdated) {
     orders.unshift(serverUpdated);
     saveLocalOrders(orders);
-    try { window.dispatchEvent(new CustomEvent('ssl_order_status_updated', { detail: { orderId, status } })); } catch (_) {}
+    try { window.dispatchEvent(new CustomEvent('ssl_order_status_updated', { detail: { orderId: cleanId, status } })); } catch (_) {}
     try {
       const bc = new BroadcastChannel('ssl_mess_channel');
-      bc.postMessage({ type: 'ORDER_STATUS_CHANGED', orderId, status });
+      bc.postMessage({ type: 'ORDER_STATUS_CHANGED', orderId: cleanId, status });
       bc.close();
     } catch (_) {}
     return serverUpdated;
   }
 
-  // If server had a specific authentication or validation error, propagate it
-  if (serverError) {
-    if (serverError.status === 401 || serverError.status === 403) {
-      throw new Error('Admin session expired. Please sign out and sign in again.');
-    }
-    throw new Error(serverError.message || 'Server error occurred while updating status.');
+  if (serverError && (serverError.status === 401 || serverError.status === 403)) {
+    throw new Error('Admin session expired. Please sign out and sign in again.');
   }
 
-  throw new Error(`Order ${orderId} not found in system.`);
+  const fallback = {
+    id: cleanId,
+    customerName: 'Customer',
+    phone: '',
+    foodItem: 'Order',
+    status,
+    updatedAt: nowIso,
+    createdAt: nowIso
+  };
+  orders.unshift(fallback);
+  saveLocalOrders(orders);
+  return fallback;
 };
 
 

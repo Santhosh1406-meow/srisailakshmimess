@@ -125,6 +125,7 @@ export default function Admin() {
   const [soundMuted, setSoundMuted] = useState(false);
   const knownOrderIdsRef = useRef(new Set());
   const isFirstLoadRef = useRef(true);
+  const pendingStatusMapRef = useRef({});
 
   // Tab & Sidebar
   const [activeTab, setActiveTab] = useState('enquiries');
@@ -189,11 +190,22 @@ export default function Admin() {
         }
         knownOrderIdsRef.current = new Set(ordersData.map((o) => o.id));
         isFirstLoadRef.current = false;
-      }
 
-      setOrders(ordersData || []);
-      setStats(statsData || null);
-      setMenuItems(menuData || []);
+        const now = Date.now();
+        // Protect recent admin status changes from being clobbered by background polling
+        const safeOrders = ordersData.map((ord) => {
+          const cleanOid = (ord.id || '').replace(/^#/, '').trim();
+          const pending = pendingStatusMapRef.current[cleanOid];
+          if (pending && (now - pending.timestamp < 45000)) {
+            return { ...ord, status: pending.status };
+          }
+          return ord;
+        });
+
+        setOrders(safeOrders);
+        setStats(statsData || null);
+        setMenuItems(menuData || []);
+      }
     } catch (err) {
       if (!silent) setError(err.message || 'Failed to load admin data.');
     } finally {
@@ -270,21 +282,43 @@ export default function Admin() {
 
   // ── Status Update ────────────────────────────────────────────────────────────
   const handleStatusChange = async (orderId, newStatus, fallbackOrder = null) => {
-    const targetOrder = fallbackOrder || orders.find((o) => o.id === orderId);
+    const cleanId = String(orderId || '').replace(/^#/, '').trim();
+    const targetOrder = fallbackOrder || orders.find((o) => (o.id || '').replace(/^#/, '').trim() === cleanId);
     const prevStatus = targetOrder?.status;
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, updatedAt: new Date().toISOString() } : o)));
+
+    // Guard against race conditions during fast polling
+    pendingStatusMapRef.current[cleanId] = { status: newStatus, timestamp: Date.now() };
+    setUpdatingId(cleanId);
+
+    // Instant optimistic update in React state
+    setOrders((prev) => prev.map((o) => {
+      const oid = (o.id || '').replace(/^#/, '').trim();
+      return oid === cleanId ? { ...o, status: newStatus, updatedAt: new Date().toISOString() } : o;
+    }));
+
     try {
-      setUpdatingId(orderId);
-      await updateOrderStatusAdmin(orderId, newStatus, targetOrder);
+      const updated = await updateOrderStatusAdmin(cleanId, newStatus, targetOrder);
+      if (updated) {
+        setOrders((prev) => prev.map((o) => {
+          const oid = (o.id || '').replace(/^#/, '').trim();
+          return oid === cleanId ? { ...o, ...updated, status: newStatus } : o;
+        }));
+      }
       try { const ns = await getAdminStats(); if (ns) setStats(ns); } catch (_) {}
       // Broadcast to customer views across tabs
       try {
         const bc = new BroadcastChannel('ssl_mess_channel');
-        bc.postMessage({ type: 'ORDER_STATUS_CHANGED', orderId, status: newStatus });
+        bc.postMessage({ type: 'ORDER_STATUS_CHANGED', orderId: cleanId, status: newStatus });
         bc.close();
       } catch (_) {}
     } catch (err) {
-      if (prevStatus) setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: prevStatus } : o)));
+      delete pendingStatusMapRef.current[cleanId];
+      if (prevStatus) {
+        setOrders((prev) => prev.map((o) => {
+          const oid = (o.id || '').replace(/^#/, '').trim();
+          return oid === cleanId ? { ...o, status: prevStatus } : o;
+        }));
+      }
       alert(`Failed to update status: ${err.message}`);
     } finally {
       setUpdatingId(null);
@@ -1039,9 +1073,13 @@ export default function Admin() {
               <div style={{ display: 'grid', gap: '1.25rem' }}>
                 {filteredOrders.map((order) => {
                   const badge = getStatusBadge(order.status);
-                  const isUpdating = updatingId === order.id;
+                  const cleanOrderId = (order.id || '').replace(/^#/, '').trim();
+                  const isUpdating = updatingId === cleanOrderId;
+                  const currentStatusVal = order.status === 'Completed' ? 'Delivered' : 
+                    (order.status === 'Enquiry Received' || order.status === 'Pending') ? 'Order Received' : 
+                    order.status === 'Food Ready' ? 'Ready' : order.status;
                   return (
-                    <div key={order.id} style={{ ...CARD, transition: 'all 0.2s' }}>
+                    <div key={order.id} style={{ ...CARD, transition: 'all 0.2s', opacity: isUpdating ? 0.85 : 1 }}>
                       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #334155', marginBottom: '1rem' }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -1052,6 +1090,11 @@ export default function Admin() {
                             <span style={{ fontSize: '0.75rem', backgroundColor: order.paymentStatus === 'Paid' ? '#dcfce7' : '#fef3c7', color: order.paymentStatus === 'Paid' ? '#166534' : '#92400e', padding: '0.2rem 0.55rem', borderRadius: '4px', fontWeight: '600' }}>
                               {order.paymentStatus}
                             </span>
+                            {isUpdating && (
+                              <span style={{ fontSize: '0.75rem', color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontWeight: '600' }}>
+                                <RefreshCw size={12} className="spin-slow" /> Saving...
+                              </span>
+                            )}
                           </div>
                           <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.3rem' }}>
                             Submitted: {new Date(order.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
@@ -1059,7 +1102,7 @@ export default function Admin() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: '600' }}>Status:</span>
-                          <select value={order.status === 'Completed' ? 'Delivered' : (order.status === 'Enquiry Received' || order.status === 'Pending' ? 'Order Received' : order.status)}
+                          <select value={currentStatusVal}
                             disabled={isUpdating} onChange={(e) => handleStatusChange(order.id, e.target.value, order)}
                             style={{ ...SELECT_STYLE, padding: '0.45rem 0.75rem', fontSize: '0.82rem', minWidth: '145px' }}>
                             <option value="Order Received">Order Received</option>

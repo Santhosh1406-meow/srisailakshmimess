@@ -202,8 +202,14 @@ const STATUS_MAP = {
  */
 exports.updateOrderStatus = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const rawId = req.params.id;
     const { status } = req.body;
+
+    if (!rawId) {
+      return res.status(400).json({ success: false, message: 'Order ID is required.' });
+    }
+
+    const cleanId = String(rawId).replace(/^#/, '').trim();
 
     if (!status || typeof status !== 'string') {
       return res.status(400).json({
@@ -222,9 +228,9 @@ exports.updateOrderStatus = async (req, res, next) => {
       });
     }
 
-    const updated = await orderService.updateOrderStatus(id, targetStatus);
+    const updated = await orderService.updateOrderStatus(cleanId, targetStatus);
     if (!updated) {
-      return res.status(404).json({ success: false, message: 'Order not found.' });
+      return res.status(404).json({ success: false, message: `Order ${cleanId} not found in database.` });
     }
 
     return res.status(200).json({
