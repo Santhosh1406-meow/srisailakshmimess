@@ -6,7 +6,7 @@ import { fetchMenu } from '../services/api';
 import { filterFallbackMenu } from '../data/defaultMenu';
 import { useCart } from '../context/CartContext';
 
-const CATEGORIES = ['All', 'Breakfast', 'Meals', 'Beverages'];
+const CATEGORIES = ['All', 'Breakfast', 'Meals', 'Dinner', 'Beverages'];
 
 export default function MenuPage() {
   const { cartCount, cartTotal, openCart } = useCart();
@@ -78,7 +78,7 @@ export default function MenuPage() {
                   onClick={() => setSelectedCategory(cat)}
                   className={`menu-category-pill ${isActive ? 'active' : ''}`}
                 >
-                  {cat === 'All' ? '🍽️ All Dishes' : cat === 'Breakfast' ? '🥞 Breakfast' : cat === 'Meals' ? '🍛 Meals & Lunch' : '☕ Beverages'}
+                  {cat === 'All' ? '🍽️ All Dishes' : cat === 'Breakfast' ? '🥞 Breakfast' : cat === 'Meals' ? '🍛 Meals & Lunch' : cat === 'Dinner' ? '🌙 Dinner' : '☕ Beverages'}
                 </button>
               );
             })}
@@ -95,7 +95,7 @@ export default function MenuPage() {
               />
               <input
                 type="text"
-                placeholder="Search dishes (e.g., Dosa, Idli, Meals, Coffee)..."
+                placeholder="Search dishes (e.g., Parotta, Dosa, Idli, Meals, Coffee)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="form-control"

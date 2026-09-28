@@ -3,7 +3,7 @@ import { Sparkles, ZoomIn, Image as ImageIcon } from 'lucide-react';
 import LightboxModal from '../components/LightboxModal';
 import { GALLERY_ITEMS } from '../data/restaurantData';
 
-const GALLERY_CATEGORIES = ['All', 'Meals', 'Breakfast', 'Beverages', 'Ambience'];
+const GALLERY_CATEGORIES = ['All', 'Breakfast', 'Meals', 'Dinner', 'Beverages', 'Ambience'];
 
 export default function GalleryPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');

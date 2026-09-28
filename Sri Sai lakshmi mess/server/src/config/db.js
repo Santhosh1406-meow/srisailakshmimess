@@ -175,37 +175,34 @@ async function initDb() {
       console.log('✅ Default admin user seeded into Neon PostgreSQL users table.');
     }
 
-    // Seed menu items if empty
-    const menuCount = await client.query('SELECT COUNT(*) FROM menu_items');
-    if (parseInt(menuCount.rows[0].count, 10) === 0) {
-      const menuFile = path.join(__dirname, '../data/menu.json');
-      if (fs.existsSync(menuFile)) {
-        try {
-          const items = JSON.parse(fs.readFileSync(menuFile, 'utf-8'));
-          for (const item of items) {
-            await client.query(`
-              INSERT INTO menu_items (id, name, tamil_name, description, category, price, image, is_vegetarian, is_available, is_popular, rating, portion)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-              ON CONFLICT (id) DO NOTHING;
-            `, [
-              item.id,
-              item.name,
-              item.tamilName || '',
-              item.description || '',
-              item.category || 'Meals',
-              Number(item.price) || 0,
-              item.image || '',
-              item.isVegetarian !== false,
-              item.isAvailable !== false,
-              Boolean(item.isPopular),
-              Number(item.rating) || 4.8,
-              item.portion || 'Standard'
-            ]);
-          }
-          console.log(`✅ Seeded ${items.length} dishes into Neon PostgreSQL menu_items table.`);
-        } catch (e) {
-          console.warn('Could not auto-seed menu_items:', e.message);
+    // Seed / Sync menu items
+    const menuFile = path.join(__dirname, '../data/menu.json');
+    if (fs.existsSync(menuFile)) {
+      try {
+        const items = JSON.parse(fs.readFileSync(menuFile, 'utf-8'));
+        for (const item of items) {
+          await client.query(`
+            INSERT INTO menu_items (id, name, tamil_name, description, category, price, image, is_vegetarian, is_available, is_popular, rating, portion)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            ON CONFLICT (id) DO NOTHING;
+          `, [
+            item.id,
+            item.name,
+            item.tamilName || '',
+            item.description || '',
+            item.category || 'Meals',
+            Number(item.price) || 0,
+            item.image || '',
+            item.isVegetarian !== false,
+            item.isAvailable !== false,
+            Boolean(item.isPopular),
+            Number(item.rating) || 4.8,
+            item.portion || 'Standard'
+          ]);
         }
+        console.log(`✅ Seeded/synced dishes into Neon PostgreSQL menu_items table.`);
+      } catch (e) {
+        console.warn('Could not auto-seed menu_items:', e.message);
       }
     }
 

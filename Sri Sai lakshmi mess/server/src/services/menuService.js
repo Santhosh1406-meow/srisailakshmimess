@@ -241,6 +241,77 @@ const initialMenuItems = [
     isPopular: false,
     rating: 4.9,
     portion: 'Clay Cup / Glass'
+  }),
+  // DINNER SPECIALTIES
+  new MenuItem({
+    id: 'dish-16',
+    name: 'Special Madurai Parotta with Salna (2 Pcs)',
+    tamilName: 'ஸ்பெஷல் பரோட்டா சால்னா',
+    description: 'Hot, flaky layered tawa parottas served with rich aromatic vegetable salna and fresh onion raita.',
+    category: 'Dinner',
+    price: 45,
+    image: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=800&q=80',
+    isVegetarian: true,
+    isAvailable: true,
+    isPopular: true,
+    rating: 4.9,
+    portion: '2 Pcs with Salna & Raita'
+  }),
+  new MenuItem({
+    id: 'dish-17',
+    name: 'Veg Kothu Parotta',
+    tamilName: 'வெஜ் கொத்து பரோட்டா',
+    description: 'Flaky shredded parottas tossed on hot tawa with fresh garden vegetables, curry leaves, onions, and rich spicy salna.',
+    category: 'Dinner',
+    price: 70,
+    image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80',
+    isVegetarian: true,
+    isAvailable: true,
+    isPopular: true,
+    rating: 4.8,
+    portion: '1 Plate with Raita & Salna'
+  }),
+  new MenuItem({
+    id: 'dish-18',
+    name: 'Idiyappam with Coconut Milk & Kurma (4 Pcs)',
+    tamilName: 'இடியாப்பம் குருமா & தேங்காய்ப்பால்',
+    description: 'Fresh steamed rice string hoppers served with sweet cardamom infused coconut milk and mildly spiced vegetable kurma.',
+    category: 'Dinner',
+    price: 50,
+    image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=800&q=80',
+    isVegetarian: true,
+    isAvailable: true,
+    isPopular: true,
+    rating: 4.8,
+    portion: '4 Pcs'
+  }),
+  new MenuItem({
+    id: 'dish-19',
+    name: 'Soft Whole Wheat Chapati with Kurma (3 Pcs)',
+    tamilName: 'சப்பாத்தி குருமா',
+    description: 'Soft, wholesome hand-rolled whole wheat chapatis served with authentic vegetable kurma and fresh onion salad.',
+    category: 'Dinner',
+    price: 45,
+    image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80',
+    isVegetarian: true,
+    isAvailable: true,
+    isPopular: false,
+    rating: 4.7,
+    portion: '3 Pcs with Kurma'
+  }),
+  new MenuItem({
+    id: 'dish-20',
+    name: 'Homestyle Kal Dosa (2 Pcs)',
+    tamilName: 'கல் தோசை கார சட்னி',
+    description: 'Thick, spongy, soft tawa kal dosas served with spicy tomato-garlic kara chutney, coconut chutney and sambar.',
+    category: 'Dinner',
+    price: 40,
+    image: 'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=800&q=80',
+    isVegetarian: true,
+    isAvailable: true,
+    isPopular: false,
+    rating: 4.8,
+    portion: '2 Pcs with 2 Chutneys & Sambar'
   })
 ];
 

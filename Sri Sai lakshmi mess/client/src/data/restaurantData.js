@@ -119,5 +119,12 @@ export const GALLERY_ITEMS = [
     category: 'Ambience',
     image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1000&q=80',
     description: 'Hygienic, welcoming and comfortable dining hall for families and food lovers.'
+  },
+  {
+    id: 'gal-10',
+    title: 'Hot Layered Parotta with Salna',
+    category: 'Dinner',
+    image: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=1000&q=80',
+    description: 'Freshly made layered flaky parottas served with spicy aromatic vegetable salna.'
   }
 ];
