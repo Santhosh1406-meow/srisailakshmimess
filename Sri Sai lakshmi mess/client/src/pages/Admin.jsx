@@ -103,6 +103,7 @@ const INPUT_STYLE = {
 };
 
 const SELECT_STYLE = { ...INPUT_STYLE, cursor: 'pointer' };
+const DEFAULT_MENU_CATEGORIES = ['Breakfast', 'Meals', 'Dinner', 'Beverages', 'Snacks', 'Desserts', 'Specials'];
 
 // ─── Main Admin Component ──────────────────────────────────────────────────────
 export default function Admin() {
@@ -135,7 +136,7 @@ export default function Admin() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('All');
 
-  // Menu CRUD state
+  // Menu CRUD & Category state
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [editingMenuItem, setEditingMenuItem] = useState(null);
   const [menuForm, setMenuForm] = useState({
@@ -145,6 +146,26 @@ export default function Admin() {
   });
   const [menuSaving, setMenuSaving] = useState(false);
   const [menuError, setMenuError] = useState('');
+
+  // Category Management state
+  const [customCategories, setCustomCategories] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ssl_admin_custom_categories');
+      return saved ? JSON.parse(saved) : [];
+    } catch (_) {
+      return [];
+    }
+  });
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [categoryError, setCategoryError] = useState('');
+  const [selectedMenuCategory, setSelectedMenuCategory] = useState('All');
+
+  const allCategories = Array.from(new Set([
+    ...DEFAULT_MENU_CATEGORIES,
+    ...menuItems.map(m => m.category).filter(Boolean),
+    ...customCategories
+  ]));
 
   // Offer CRUD state
   const [showOfferModal, setShowOfferModal] = useState(false);
@@ -388,10 +409,39 @@ export default function Admin() {
     return matchesStatus && matchesSearch;
   });
 
-  // ── Menu Modal Helpers ────────────────────────────────────────────────────────
+  // ── Menu & Category Modal Helpers ───────────────────────────────────────────
+  const handleAddNewCategory = (e) => {
+    e?.preventDefault();
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) {
+      setCategoryError('Category name cannot be empty.');
+      return;
+    }
+    if (allCategories.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+      setCategoryError(`Category "${trimmed}" already exists.`);
+      return;
+    }
+    const updated = [...customCategories, trimmed];
+    setCustomCategories(updated);
+    try {
+      localStorage.setItem('ssl_admin_custom_categories', JSON.stringify(updated));
+    } catch (_) {}
+
+    // Automatically select the new category in the dish form
+    setMenuForm(f => ({ ...f, category: trimmed }));
+    setNewCategoryName('');
+    setCategoryError('');
+    setShowAddCategoryModal(false);
+  };
+
   const openAddMenuItem = () => {
     setEditingMenuItem(null);
-    setMenuForm({ name: '', tamilName: '', description: '', category: 'Breakfast', price: '', image: '', isVegetarian: true, isAvailable: true, isPopular: false, rating: '4.5', portion: 'Standard' });
+    const initialCategory = selectedMenuCategory !== 'All' ? selectedMenuCategory : (allCategories[0] || 'Breakfast');
+    setMenuForm({
+      name: '', tamilName: '', description: '', category: initialCategory,
+      price: '', image: '', isVegetarian: true, isAvailable: true,
+      isPopular: false, rating: '4.5', portion: 'Standard'
+    });
     setMenuError('');
     setShowMenuModal(true);
   };
@@ -1276,13 +1326,67 @@ export default function Admin() {
                   <h2 style={{ color: '#ffffff', margin: 0, fontSize: '1.4rem', fontWeight: '800' }}>Menu Management</h2>
                   <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '0.25rem 0 0 0' }}>{menuItems.length} dishes — add, edit, or remove items</p>
                 </div>
-                <button onClick={openAddMenuItem} style={{ ...BTN_PRIMARY, padding: '0.7rem 1.25rem', fontSize: '0.9rem' }}>
-                  <Plus size={17} /><span>Add New Dish</span>
-                </button>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => { setCategoryError(''); setNewCategoryName(''); setShowAddCategoryModal(true); }}
+                    style={{ ...BTN_BLUE, padding: '0.7rem 1.15rem', fontSize: '0.9rem' }}
+                    title="Add a new category for menu items"
+                  >
+                    <Plus size={17} /><span>Add Category</span>
+                  </button>
+                  <button onClick={openAddMenuItem} style={{ ...BTN_PRIMARY, padding: '0.7rem 1.25rem', fontSize: '0.9rem' }}>
+                    <Plus size={17} /><span>Add New Dish</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Category Filter Pills in Admin */}
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', marginRight: '0.25rem' }}>
+                  Category Filter:
+                </span>
+                {['All', ...allCategories].map(cat => {
+                  const isActive = selectedMenuCategory === cat;
+                  const count = cat === 'All' ? menuItems.length : menuItems.filter(m => (m.category || '').toLowerCase() === cat.toLowerCase()).length;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedMenuCategory(cat)}
+                      style={{
+                        background: isActive ? '#ea580c' : '#1e293b',
+                        color: isActive ? '#ffffff' : '#cbd5e1',
+                        border: isActive ? '1px solid #ea580c' : '1px solid #334155',
+                        borderRadius: '20px',
+                        padding: '0.35rem 0.85rem',
+                        fontSize: '0.82rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <span>{cat === 'All' ? '🍽️ All' : cat === 'Dinner' ? '🌙 Dinner' : cat}</span>
+                      <span style={{
+                        background: isActive ? 'rgba(0,0,0,0.25)' : '#0f172a',
+                        padding: '0.1rem 0.4rem',
+                        borderRadius: '10px',
+                        fontSize: '0.72rem',
+                        color: isActive ? '#ffffff' : '#94a3b8'
+                      }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '1.1rem' }}>
-                {menuItems.map((item) => (
+                {(selectedMenuCategory === 'All'
+                  ? menuItems
+                  : menuItems.filter(m => (m.category || '').toLowerCase() === selectedMenuCategory.toLowerCase())
+                ).map((item) => (
                   <div key={item.id} style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: '0.75rem', opacity: item.isAvailable ? 1 : 0.6 }}>
                     {item.image && (
                       <div style={{ borderRadius: '10px', overflow: 'hidden', height: '160px' }}>
@@ -1333,9 +1437,19 @@ export default function Admin() {
                       <input value={menuForm.tamilName} onChange={e => setMenuForm(f => ({ ...f, tamilName: e.target.value }))} placeholder="தமிழ் பெயர்" style={INPUT_STYLE} />
                     </FormField>
                     <FormField label="Category *">
-                      <select value={menuForm.category} onChange={e => setMenuForm(f => ({ ...f, category: e.target.value }))} style={SELECT_STYLE}>
-                        {['Breakfast', 'Meals', 'Beverages', 'Snacks', 'Desserts', 'Specials'].map(c => <option key={c}>{c}</option>)}
-                      </select>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <select value={menuForm.category} onChange={e => setMenuForm(f => ({ ...f, category: e.target.value }))} style={{ ...SELECT_STYLE, flex: 1 }}>
+                          {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => { setCategoryError(''); setNewCategoryName(''); setShowAddCategoryModal(true); }}
+                          style={{ ...BTN_BLUE, padding: '0.65rem 0.85rem', fontSize: '0.82rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                          title="Add a new category"
+                        >
+                          <Plus size={15} /> Add
+                        </button>
+                      </div>
                     </FormField>
                     <FormField label="Price (₹) *">
                       <input type="number" value={menuForm.price} onChange={e => setMenuForm(f => ({ ...f, price: e.target.value }))} placeholder="e.g. 50" style={INPUT_STYLE} min="0" />
@@ -1378,6 +1492,57 @@ export default function Admin() {
                       <span>{menuSaving ? 'Saving...' : (editingMenuItem ? 'Update Dish' : 'Add Dish')}</span>
                     </button>
                   </div>
+                </Modal>
+              )}
+
+              {/* Add New Category Modal */}
+              {showAddCategoryModal && (
+                <Modal title="Add New Menu Category" onClose={() => setShowAddCategoryModal(false)}>
+                  {categoryError && (
+                    <div style={{ padding: '0.75rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#fca5a5', marginBottom: '1rem', fontSize: '0.85rem' }}>
+                      {categoryError}
+                    </div>
+                  )}
+                  <form onSubmit={handleAddNewCategory}>
+                    <FormField label="Category Name *">
+                      <input
+                        autoFocus
+                        value={newCategoryName}
+                        onChange={e => { setNewCategoryName(e.target.value); setCategoryError(''); }}
+                        placeholder="e.g. Starters, Tiffin, Chinese, Breads, Sweets..."
+                        style={INPUT_STYLE}
+                      />
+                    </FormField>
+
+                    <div style={{ marginBottom: '1.25rem' }}>
+                      <label style={{ display: 'block', color: '#64748b', fontSize: '0.78rem', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: '700' }}>
+                        Existing Categories:
+                      </label>
+                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        {allCategories.map(cat => (
+                          <span key={cat} style={{ fontSize: '0.75rem', backgroundColor: '#0f172a', color: '#cbd5e1', padding: '0.25rem 0.55rem', borderRadius: '6px', border: '1px solid #334155' }}>
+                            {cat}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCategoryModal(false)}
+                        style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        style={{ ...BTN_PRIMARY, padding: '0.7rem 1.4rem' }}
+                      >
+                        <Plus size={16} /> Save Category
+                      </button>
+                    </div>
+                  </form>
                 </Modal>
               )}
             </div>
