@@ -165,6 +165,11 @@ export default function Admin() {
 
   const isAdmin = user && user.role === 'admin';
 
+  // Warm up Render backend immediately when Admin portal mounts
+  useEffect(() => {
+    fetch('https://srisailakshmimess.onrender.com/api/health', { method: 'GET' }).catch(() => {});
+  }, []);
+
   // ── Load Admin Data ──────────────────────────────────────────────────────────
   const loadAdminData = async (silent = false) => {
     if (!isAdmin) return;

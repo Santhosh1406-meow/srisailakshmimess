@@ -4,8 +4,14 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../../.env') });
 require('dotenv').config();
 
 const parseClientUrls = () => {
-  const raw = process.env.CLIENT_URL || 'http://localhost:5173,http://localhost:3000';
-  return raw.split(',').map((url) => url.trim()).filter(Boolean);
+  const defaultOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://srisailakshmimesssvks.netlify.app'
+  ];
+  const raw = process.env.CLIENT_URL || '';
+  const userOrigins = raw.split(',').map((url) => url.trim().replace(/\/+$/, '')).filter(Boolean);
+  return Array.from(new Set([...defaultOrigins, ...userOrigins]));
 };
 
 // Validate critical env vars in production

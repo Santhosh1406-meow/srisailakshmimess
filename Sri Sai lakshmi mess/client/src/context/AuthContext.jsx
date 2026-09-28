@@ -17,46 +17,74 @@ function getAuthApiBase() {
 
 
 async function authFetch(path, options = {}) {
-  const base = getAuthApiBase();
-  const url = `${base}${path}`;
+  const primaryBase = getAuthApiBase();
+  // Candidate bases: direct Render URL and relative /api proxy
+  const candidateBases = primaryBase === RENDER_API
+    ? [RENDER_API, '/api']
+    : [primaryBase, RENDER_API];
+
   const headers = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     ...(options.headers || {})
   };
 
-  const res = await fetch(url, { ...options, headers });
-  const contentType = res.headers.get('content-type') || '';
+  let lastError = null;
 
-  // If we get HTML back (e.g. Netlify SPA fallback), retry directly on Render
-  if (!contentType.includes('application/json')) {
-    if (base !== RENDER_API) {
-      const retryRes = await fetch(`${RENDER_API}${path}`, { ...options, headers });
-      const retryType = retryRes.headers.get('content-type') || '';
-      if (!retryType.includes('application/json')) {
-        throw new Error('Server is unavailable. Please try again later.');
+  for (const base of candidateBases) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const url = `${base}${path}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+        const res = await fetch(url, { ...options, headers, signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const json = await res.json();
+          if (!res.ok) {
+            const msg = json.errors
+              ? (Array.isArray(json.errors) ? json.errors.join(' ') : json.errors)
+              : (json.message || `Request failed (${res.status})`);
+            const err = new Error(msg);
+            err.status = res.status;
+            throw err;
+          }
+          return json;
+        }
+      } catch (err) {
+        lastError = err;
+        // If HTTP 400/401/403/422 status (e.g. invalid credentials, user not found), don't retry - throw immediately
+        if (err.status && err.status >= 400 && err.status < 500) {
+          throw err;
+        }
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 1200));
+        }
       }
-      const retryJson = await retryRes.json();
-      if (!retryRes.ok) throw new Error(retryJson.message || `Request failed (${retryRes.status})`);
-      return retryJson;
     }
-    throw new Error('Server is unavailable. Please try again later.');
   }
 
-  const json = await res.json();
-  if (!res.ok) {
-    const msg = json.errors
-      ? (Array.isArray(json.errors) ? json.errors.join(' ') : json.errors)
-      : (json.message || `Request failed (${res.status})`);
-    throw new Error(msg);
+  if (lastError) {
+    if (lastError.message?.includes('Failed to fetch') || lastError.name === 'AbortError' || lastError.name === 'TypeError') {
+      throw new Error('Backend server is waking up or temporarily unreachable. Please wait 15 seconds and try again.');
+    }
+    throw lastError;
   }
-  return json;
+  throw new Error('Server connection error. Please try again.');
 }
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem('ssl_auth_token'));
   const [loading, setLoading] = useState(true);
+
+  // Warm up Render backend as soon as app loads
+  useEffect(() => {
+    fetch('https://srisailakshmimess.onrender.com/api/health', { method: 'GET' }).catch(() => {});
+  }, []);
 
   // On mount, verify token with server and restore user
   useEffect(() => {

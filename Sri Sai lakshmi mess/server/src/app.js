@@ -22,24 +22,47 @@ app.use(helmet());
 // Cross-Origin Resource Sharing
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow server-to-server requests (no origin header)
+    // Allow server-to-server, curl, Postman, or proxy requests (no origin header)
     if (!origin) return callback(null, true);
+
+    const cleanOrigin = origin.replace(/\/+$/, '').toLowerCase();
 
     // Always allow in development
     if (config.nodeEnv === 'development') {
       return callback(null, true);
     }
 
-    // In production, only allow explicitly listed origins
-    if (config.corsOrigins.includes(origin)) {
+    // Always allow localhost
+    if (/^https?:\/\/localhost(:\d+)?$/.test(cleanOrigin) || /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(cleanOrigin)) {
       return callback(null, true);
     }
 
-    return callback(new Error(`CORS: Origin ${origin} not allowed.`));
+    // Always allow any Netlify domain (including branch and preview deploys)
+    if (cleanOrigin.endsWith('.netlify.app')) {
+      return callback(null, true);
+    }
+
+    // Always allow Render domains
+    if (cleanOrigin.endsWith('.onrender.com')) {
+      return callback(null, true);
+    }
+
+    // Match against explicitly configured origins (case-insensitive & trailing-slash safe)
+    const isAllowed = config.corsOrigins.some((allowed) => {
+      const cleanAllowed = (allowed || '').replace(/\/+$/, '').toLowerCase();
+      return cleanOrigin === cleanAllowed;
+    });
+
+    if (isAllowed) {
+      return callback(null, true);
+    }
+
+    // Gracefully deny origin without throwing a 500 Internal Server Error
+    return callback(null, false);
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 };
 app.use(cors(corsOptions));
 
