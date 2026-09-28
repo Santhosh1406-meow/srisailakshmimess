@@ -15,6 +15,7 @@ function getAuthApiBase() {
   return LOCAL_API;
 }
 
+
 async function authFetch(path, options = {}) {
   const base = getAuthApiBase();
   const url = `${base}${path}`;
