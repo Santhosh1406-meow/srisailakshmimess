@@ -167,7 +167,7 @@ export default function Admin() {
 
   // Warm up Render backend immediately when Admin portal mounts
   useEffect(() => {
-    fetch('https://srisailakshmimess.onrender.com/api/health', { method: 'GET' }).catch(() => {});
+    fetch('https://srisailakshmimess.onrender.com/api/health', { method: 'GET' }).catch(() => { });
   }, []);
 
   // ── Load Admin Data ──────────────────────────────────────────────────────────
@@ -344,7 +344,7 @@ export default function Admin() {
     delete pendingStatusMapRef.current[cleanId];
     try {
       await deleteOrderAdmin(cleanId);
-      try { const ns = await getAdminStats(); if (ns) setStats(ns); } catch (_) {}
+      try { const ns = await getAdminStats(); if (ns) setStats(ns); } catch (_) { }
     } catch (err) {
       alert(`Failed to delete order: ${err.message}`);
       loadAdminData(true);

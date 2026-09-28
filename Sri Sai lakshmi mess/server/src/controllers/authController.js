@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');
+const googleAuthService = require('../services/googleAuthService');
 const { jwtSecret: JWT_SECRET, jwtExpiresIn: JWT_EXPIRES_IN } = require('../config');
 
 /**
@@ -92,6 +93,55 @@ exports.login = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+/**
+ * POST /api/auth/google
+ * Google OAuth: handles login & sign up automatically with verified Google ID token
+ */
+exports.googleLogin = async (req, res, next) => {
+  try {
+    const { credential, token } = req.body;
+    const idToken = credential || token;
+
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Google credential / ID token is required.'
+      });
+    }
+
+    const googlePayload = await googleAuthService.verifyGoogleToken(idToken);
+    if (!googlePayload || !googlePayload.email) {
+      return res.status(401).json({
+        success: false,
+        message: 'Could not verify Google account details.'
+      });
+    }
+
+    // Find or create customer account with Google identity
+    const user = await userService.findOrCreateGoogleUser({
+      googleId: googlePayload.googleId,
+      email: googlePayload.email,
+      name: googlePayload.name,
+      avatar: googlePayload.avatar
+    });
+
+    const jwtToken = generateToken(user);
+
+    return res.status(200).json({
+      success: true,
+      message: `Welcome to Sri Sai Lakshmi Mess, ${user.name}!`,
+      token: jwtToken,
+      user: user.toPublic()
+    });
+  } catch (error) {
+    console.error('[AuthController] Google auth error:', error.message);
+    return res.status(401).json({
+      success: false,
+      message: error.message || 'Google authentication failed. Please try again.'
+    });
   }
 };
 

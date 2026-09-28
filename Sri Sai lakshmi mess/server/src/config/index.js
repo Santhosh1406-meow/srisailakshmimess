@@ -31,6 +31,7 @@ module.exports = {
   databaseUrl: process.env.DATABASE_URL,
   jwtSecret: process.env.JWT_SECRET || (process.env.NODE_ENV !== 'production' ? 'srilakshmi_mess_secret_dev_2024' : null),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '',
   razorpayKeyId: process.env.RAZORPAY_KEY_ID,
   razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET,
   restaurantInfo: {

@@ -162,7 +162,19 @@ export default function Navbar() {
                   aria-expanded={profileOpen}
                   aria-label="User profile menu"
                 >
-                  <div className="navbar-avatar">{initials}</div>
+                  <div className="navbar-avatar" style={{ padding: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {user?.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        referrerPolicy="no-referrer"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    ) : (
+                      initials
+                    )}
+                  </div>
                   <ChevronDown size={14} className={`navbar-chevron ${profileOpen ? 'open' : ''}`} />
                 </button>
 
@@ -171,15 +183,29 @@ export default function Navbar() {
                     <div className="navbar-dropdown-user">
                       <strong className="user-name-text">{user.name}</strong>
                       <span className="user-email-text">{user.email}</span>
-                      <span
-                        className="user-role-badge"
-                        style={{
-                          backgroundColor: user.role === 'admin' ? 'rgba(234,88,12,0.15)' : user.role === 'delivery' ? 'rgba(59,130,246,0.15)' : 'rgba(34,197,94,0.15)',
-                          color: user.role === 'admin' ? '#ea580c' : user.role === 'delivery' ? '#2563eb' : '#16a34a'
-                        }}
-                      >
-                        {user.role === 'admin' ? '🛡️ Administrator' : user.role === 'delivery' ? '🛵 Delivery Partner' : '👤 Customer'}
-                      </span>
+                      <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.35rem', flexWrap: 'wrap' }}>
+                        <span
+                          className="user-role-badge"
+                          style={{
+                            backgroundColor: user.role === 'admin' ? 'rgba(234,88,12,0.15)' : user.role === 'delivery' ? 'rgba(59,130,246,0.15)' : 'rgba(34,197,94,0.15)',
+                            color: user.role === 'admin' ? '#ea580c' : user.role === 'delivery' ? '#2563eb' : '#16a34a'
+                          }}
+                        >
+                          {user.role === 'admin' ? '🛡️ Administrator' : user.role === 'delivery' ? '🛵 Delivery Partner' : '👤 Customer'}
+                        </span>
+                        {(user.googleId || user.authProvider === 'google') && (
+                          <span
+                            className="user-role-badge"
+                            style={{
+                              backgroundColor: 'rgba(66, 133, 244, 0.12)',
+                              color: '#1a73e8',
+                              fontWeight: 700
+                            }}
+                          >
+                            Google Verified
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {user.role === 'admin' && (

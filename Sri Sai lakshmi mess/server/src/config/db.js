@@ -52,9 +52,13 @@ async function initDb() {
         vehicle_number VARCHAR(40),
         is_available BOOLEAN DEFAULT true,
         total_deliveries INT DEFAULT 0,
+        google_id VARCHAR(100),
+        avatar TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(100);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT;
     `);
 
     // 2. Create orders table

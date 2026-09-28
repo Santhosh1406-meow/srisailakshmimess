@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, Lock, Eye, EyeOff, UserPlus, AlertCircle, CheckCircle2, UtensilsCrossed } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import GoogleAuthButton from '../components/GoogleAuthButton';
 
 export default function Signup() {
   const { register } = useAuth();
@@ -76,6 +77,16 @@ export default function Signup() {
     }
   };
 
+  const handleGoogleSuccess = (user) => {
+    navigate('/dashboard', {
+      replace: true,
+      state: {
+        registered: true,
+        message: `Welcome to Sri Sai Lakshmi Mess, ${user?.name || 'Customer'}! Your account has been registered via Google.`
+      }
+    });
+  };
+
   const passwordStrength = () => {
     const p = formData.password;
     if (!p) return null;
@@ -124,6 +135,19 @@ export default function Signup() {
               <span>{globalError}</span>
             </div>
           )}
+
+          {/* Google Sign Up */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <GoogleAuthButton
+              mode="signup"
+              onSuccess={handleGoogleSuccess}
+              onError={(msg) => setGlobalError(msg)}
+            />
+          </div>
+
+          <div className="auth-divider">
+            <span>or create account with email</span>
+          </div>
 
           <form onSubmit={handleSubmit} noValidate>
             {/* Full Name */}

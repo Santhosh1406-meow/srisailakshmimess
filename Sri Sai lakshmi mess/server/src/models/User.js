@@ -13,6 +13,8 @@ class User {
     phone,
     passwordHash,
     role = 'customer',
+    googleId = null,
+    avatar = null,
     createdAt = new Date().toISOString()
   }) {
     this.id = id || `USR-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -21,6 +23,8 @@ class User {
     this.phone = phone ? phone.trim() : '';
     this.passwordHash = passwordHash;
     this.role = role; // 'customer' | 'admin'
+    this.googleId = googleId || null;
+    this.avatar = avatar || null;
     this.createdAt = createdAt;
   }
 
@@ -30,6 +34,7 @@ class User {
   }
 
   async verifyPassword(plainPassword) {
+    if (!this.passwordHash) return false;
     return bcrypt.compare(plainPassword, this.passwordHash);
   }
 
@@ -40,6 +45,9 @@ class User {
       email: this.email,
       phone: this.phone,
       role: this.role,
+      googleId: this.googleId,
+      avatar: this.avatar,
+      authProvider: this.googleId ? 'google' : 'local',
       createdAt: this.createdAt
     };
   }

@@ -10,6 +10,7 @@ import {
   Info
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import GoogleAuthButton from '../components/GoogleAuthButton';
 
 export default function Login() {
   const { login } = useAuth();
@@ -73,6 +74,19 @@ export default function Login() {
     }
   };
 
+  const handleGoogleSuccess = (user) => {
+    const role = user?.role || 'customer';
+    if (role === 'admin') {
+      navigate('/admin', { replace: true });
+    } else {
+      if (from) {
+        navigate(from, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  };
+
   return (
     <div className="auth-page">
       <div className="auth-bg-decoration" />
@@ -121,6 +135,19 @@ export default function Login() {
               <span>{infoMessage}</span>
             </div>
           )}
+
+          {/* Google OAuth Login */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <GoogleAuthButton
+              mode="signin"
+              onSuccess={handleGoogleSuccess}
+              onError={(msg) => setError(msg)}
+            />
+          </div>
+
+          <div className="auth-divider">
+            <span>or sign in with email</span>
+          </div>
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} noValidate>

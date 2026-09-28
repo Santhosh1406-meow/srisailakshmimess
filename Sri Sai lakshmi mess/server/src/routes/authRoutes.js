@@ -9,6 +9,9 @@ router.post('/register', authController.register);
 // POST /api/auth/login
 router.post('/login', authController.login);
 
+// POST /api/auth/google (Google OAuth sign-in & register)
+router.post('/google', authController.googleLogin);
+
 // GET /api/auth/me  (requires token)
 router.get('/me', protect, authController.getMe);
 

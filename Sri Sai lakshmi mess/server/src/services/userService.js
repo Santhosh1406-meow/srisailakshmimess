@@ -15,6 +15,8 @@ function rowToUser(row) {
     phone: row.phone,
     passwordHash: row.password_hash,
     role: row.role,
+    googleId: row.google_id || null,
+    avatar: row.avatar || null,
     createdAt: row.created_at
   });
 }
@@ -228,6 +230,107 @@ class UserService {
       }
     }
     return this.users.filter((u) => u.role === 'customer').map((u) => u.toPublic());
+  }
+
+  async findByGoogleId(googleId) {
+    if (!googleId) return null;
+    if (isDbConnected()) {
+      try {
+        const res = await query('SELECT * FROM users WHERE google_id = $1 LIMIT 1', [googleId]);
+        if (res && res.rows && res.rows.length > 0) {
+          return rowToUser(res.rows[0]);
+        }
+      } catch (err) {
+        console.error('[UserService] Error querying user by google_id:', err.message);
+      }
+    }
+    return this.users.find((u) => u.googleId === googleId) || null;
+  }
+
+  async findOrCreateGoogleUser({ googleId, email, name, avatar }) {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanName = (name || 'Valued Customer').trim();
+
+    // Check if user exists by googleId or email
+    let user = null;
+    if (googleId) {
+      user = await this.findByGoogleId(googleId);
+    }
+    if (!user && cleanEmail) {
+      user = await this.findByEmail(cleanEmail);
+    }
+
+    if (user) {
+      let needsUpdate = false;
+      if (!user.googleId && googleId) {
+        user.googleId = googleId;
+        needsUpdate = true;
+      }
+      if (!user.avatar && avatar) {
+        user.avatar = avatar;
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        if (isDbConnected()) {
+          try {
+            await query(`
+              UPDATE users 
+              SET google_id = COALESCE(google_id, $1), 
+                  avatar = COALESCE(avatar, $2), 
+                  updated_at = NOW() 
+              WHERE id = $3
+            `, [googleId, avatar, user.id]);
+          } catch (dbErr) {
+            console.warn('[UserService] Could not update user google_id/avatar in DB:', dbErr.message);
+          }
+        }
+        this._persist();
+      }
+      return user;
+    }
+
+    // Otherwise, create a new user for Google Sign-in
+    // Use a secure random password hash since password_hash is NOT NULL in database
+    const randomPassword = `google_${googleId || Date.now()}_${Math.random().toString(36).slice(-8)}`;
+    const passwordHash = await User.hashPassword(randomPassword);
+
+    const newUser = new User({
+      name: cleanName,
+      email: cleanEmail,
+      phone: '',
+      passwordHash,
+      role: 'customer',
+      googleId: googleId || null,
+      avatar: avatar || null
+    });
+
+    if (isDbConnected()) {
+      try {
+        await query(`
+          INSERT INTO users (id, name, email, phone, password_hash, role, google_id, avatar, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `, [
+          newUser.id,
+          newUser.name,
+          newUser.email,
+          newUser.phone,
+          newUser.passwordHash,
+          newUser.role,
+          newUser.googleId,
+          newUser.avatar,
+          newUser.createdAt,
+          new Date()
+        ]);
+        console.log(`✅ [UserService] Registered new Google customer ${newUser.email} in Neon DB.`);
+      } catch (dbErr) {
+        console.error('[UserService] Failed to insert Google user into Neon DB:', dbErr.message);
+      }
+    }
+
+    this.users.push(newUser);
+    this._persist();
+    return newUser;
   }
 }
 

@@ -477,6 +477,14 @@ export const loginUser = async ({ email, password }) => {
   });
 };
 
+export const loginWithGoogleApi = async (credential) => {
+  return await safeFetchJson(`${API_BASE_URL}/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential })
+  });
+};
+
 export const registerUser = async ({ name, email, phone, password }) => {
   return await safeFetchJson(`${API_BASE_URL}/auth/register`, {
     method: 'POST',

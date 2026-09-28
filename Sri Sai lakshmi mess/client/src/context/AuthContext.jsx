@@ -137,6 +137,19 @@ export function AuthProvider({ children }) {
     return json.user;
   }, []);
 
+  const loginWithGoogle = useCallback(async (credential) => {
+    const json = await authFetch('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ credential })
+    });
+
+    localStorage.setItem('ssl_auth_token', json.token);
+    localStorage.setItem('ssl_user', JSON.stringify(json.user));
+    setToken(json.token);
+    setUser(json.user);
+    return json.user;
+  }, []);
+
   const register = useCallback(async ({ name, email, phone, password }, autoLogin = false) => {
     const json = await authFetch('/auth/register', {
       method: 'POST',
@@ -165,7 +178,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, getAuthHeaders, isLoggedIn: !!user }}>
+    <AuthContext.Provider value={{ user, token, loading, login, loginWithGoogle, register, logout, getAuthHeaders, isLoggedIn: !!user }}>
       {children}
     </AuthContext.Provider>
   );

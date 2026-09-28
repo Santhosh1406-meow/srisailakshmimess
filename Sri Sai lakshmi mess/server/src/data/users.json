@@ -6,6 +6,8 @@
     "phone": "9876543210",
     "passwordHash": "$2b$10$92VCe6qjZXJntoku38KIYemjDgN9EqLOUge/mwEIh9i.C0XoPZSVa",
     "role": "admin",
+    "googleId": null,
+    "avatar": null,
     "createdAt": "2026-09-19T04:07:35.933Z"
   }
 ]

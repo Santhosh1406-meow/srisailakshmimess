@@ -177,15 +177,34 @@ export default function CustomerDashboard() {
         <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-              <div style={{ width: '48px', height: '48px', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <User size={24} />
+              <div style={{ width: '48px', height: '48px', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    referrerPolicy="no-referrer"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <User size={24} />
+                )}
               </div>
               <div>
                 <div style={{ fontSize: '0.85rem', opacity: 0.85 }}>Welcome back 👋</div>
                 <h1 style={{ fontSize: '1.6rem', fontWeight: '800', margin: 0 }}>{user.name}</h1>
               </div>
             </div>
-            <div style={{ fontSize: '0.85rem', opacity: 0.75 }}>{user.email} · Customer Account</div>
+            <div style={{ fontSize: '0.85rem', opacity: 0.85, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span>{user.email}</span>
+              <span>·</span>
+              <span>Customer Account</span>
+              {(user.googleId || user.authProvider === 'google') && (
+                <span style={{ background: 'rgba(255,255,255,0.22)', padding: '0.15rem 0.5rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700' }}>
+                  ✓ Google Account
+                </span>
+              )}
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <Link to="/order" style={{ background: 'rgba(255,255,255,0.15)', color: 'white', padding: '0.6rem 1.2rem', borderRadius: '50px', textDecoration: 'none', fontWeight: '700', fontSize: '0.875rem', border: '1px solid rgba(255,255,255,0.3)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
