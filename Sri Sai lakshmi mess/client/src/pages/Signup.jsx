@@ -34,7 +34,9 @@ export default function Signup() {
       errs.name = 'Full name must be at least 2 characters.';
     if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       errs.email = 'Please enter a valid email address.';
-    if (formData.phone.trim()) {
+    if (!formData.phone.trim()) {
+      errs.phone = 'Mobile number is required.';
+    } else {
       const raw = formData.phone.replace(/\D/g, '');
       let norm = raw;
       if (norm.startsWith('91') && norm.length === 12) norm = norm.slice(2);
@@ -195,7 +197,7 @@ export default function Signup() {
             {/* Phone */}
             <div className="form-group">
               <label htmlFor="signup-phone" className="form-label">
-                Mobile Number <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>(Optional — for order tracking)</span>
+                Mobile Number <span className="required">*</span>
               </label>
               <div className="auth-input-wrapper">
                 <Phone size={17} className="auth-input-icon" />
@@ -208,6 +210,7 @@ export default function Signup() {
                   placeholder="e.g. 9876543210"
                   className={`form-control auth-input-with-icon ${errors.phone ? 'error' : ''}`}
                   autoComplete="tel"
+                  required
                 />
               </div>
               {errors.phone && <div className="form-error-msg"><AlertCircle size={13} /> {errors.phone}</div>}

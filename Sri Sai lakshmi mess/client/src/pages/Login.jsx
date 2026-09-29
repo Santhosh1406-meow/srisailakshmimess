@@ -174,7 +174,22 @@ export default function Login() {
 
             {/* Password */}
             <div className="form-group">
-              <label htmlFor="login-password" className="form-label">Password</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                <label htmlFor="login-password" className="form-label" style={{ marginBottom: 0 }}>Password</label>
+                <Link
+                  to="/forgot-password"
+                  style={{
+                    fontSize: '0.82rem',
+                    color: '#ea580c',
+                    fontWeight: 600,
+                    textDecoration: 'none'
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                  onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="auth-input-wrapper">
                 <Lock size={17} className="auth-input-icon" />
                 <input

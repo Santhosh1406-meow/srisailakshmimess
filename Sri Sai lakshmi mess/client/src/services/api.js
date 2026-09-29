@@ -511,6 +511,22 @@ export const getAllCustomers = async () => {
   }
 };
 
+export const verifyRegisteredPhone = async (phone) => {
+  return await safeFetchJson(`${API_BASE_URL}/auth/forgot-password/verify-phone`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone })
+  });
+};
+
+export const resetPasswordByPhone = async ({ phone, newPassword }) => {
+  return await safeFetchJson(`${API_BASE_URL}/auth/forgot-password/reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, newPassword })
+  });
+};
+
 // ─── Payments ─────────────────────────────────────────────────────────────────
 
 export const getPaymentConfig = async () => {

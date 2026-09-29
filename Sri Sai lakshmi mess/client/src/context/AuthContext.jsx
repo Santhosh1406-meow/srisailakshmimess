@@ -165,6 +165,20 @@ export function AuthProvider({ children }) {
     return json.user;
   }, []);
 
+  const verifyRegisteredPhone = useCallback(async (phone) => {
+    return await authFetch('/auth/forgot-password/verify-phone', {
+      method: 'POST',
+      body: JSON.stringify({ phone })
+    });
+  }, []);
+
+  const resetPasswordByPhone = useCallback(async ({ phone, newPassword }) => {
+    return await authFetch('/auth/forgot-password/reset', {
+      method: 'POST',
+      body: JSON.stringify({ phone, newPassword })
+    });
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem('ssl_auth_token');
     localStorage.removeItem('ssl_user');
@@ -178,7 +192,21 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, loginWithGoogle, register, logout, getAuthHeaders, isLoggedIn: !!user }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        loading,
+        login,
+        loginWithGoogle,
+        register,
+        verifyRegisteredPhone,
+        resetPasswordByPhone,
+        logout,
+        getAuthHeaders,
+        isLoggedIn: !!user
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

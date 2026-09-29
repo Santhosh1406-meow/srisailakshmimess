@@ -4,10 +4,120 @@
     "name": "Mess Manager (Admin)",
     "email": "admin@srisailakshmimess.com",
     "phone": "9876543210",
-    "passwordHash": "$2b$10$92VCe6qjZXJntoku38KIYemjDgN9EqLOUge/mwEIh9i.C0XoPZSVa",
+    "passwordHash": "$2b$10$7wB/Nm5nF/kmzbBLV3fKX.2lTTkEZjff3gfriVgqhPsjN8pC0mVJm",
     "role": "admin",
     "googleId": null,
     "avatar": null,
     "createdAt": "2026-09-19T04:07:35.933Z"
+  },
+  {
+    "id": "USR-1790526177224-7330",
+    "name": "sam joshua",
+    "email": "jk2067123@gmail.com",
+    "phone": "9791947667",
+    "passwordHash": "$2b$10$8fn0f989m2ixjQ4PrQ1Yf.iSfDaso3UanADk2GYf3HeTGTl9TjiPS",
+    "role": "customer",
+    "googleId": null,
+    "avatar": null,
+    "createdAt": "2026-09-27T16:22:57.224Z"
+  },
+  {
+    "id": "USR-1790527333828-6673",
+    "name": "Santhosh",
+    "email": "santhoshs14277@gmail.com",
+    "phone": "6383034188",
+    "passwordHash": "$2b$10$YUlPu.gdixxxMw8sQ1pOG.PY8SAS6XAVq5uRoPzBsPBasO4DtQgKq",
+    "role": "customer",
+    "googleId": null,
+    "avatar": null,
+    "createdAt": "2026-09-27T16:42:13.828Z"
+  },
+  {
+    "id": "USR-1790528259068-3210",
+    "name": "SINGARAJ",
+    "email": "singaa@gmail.com",
+    "phone": "8110039889",
+    "passwordHash": "$2b$10$clXKY1vG/JIw2s3SC0JFLeGR4PCreq/M1XLApnMbYSnQffF/8YcFS",
+    "role": "customer",
+    "googleId": null,
+    "avatar": null,
+    "createdAt": "2026-09-27T16:57:39.068Z"
+  },
+  {
+    "id": "USR-1790529114189-9845",
+    "name": "Munees",
+    "email": "24ucs246@anjaconline.org",
+    "phone": "9345641246",
+    "passwordHash": "$2b$10$yAn1Bj4WzhLnHgMmMMKW8OFz.EZ7NYmPvv66EYpXX1gCq3D6Cx12O",
+    "role": "customer",
+    "googleId": null,
+    "avatar": null,
+    "createdAt": "2026-09-27T17:11:54.189Z"
+  },
+  {
+    "id": "USR-1790529300295-6796",
+    "name": "SINGAA",
+    "email": "singa@gmail.com",
+    "phone": "8110039889",
+    "passwordHash": "$2b$10$Tg6cXvxW.22iiZ22pROR.evuZb/y27mp0w8uB4V2f5yyV6jfxSFVO",
+    "role": "customer",
+    "googleId": null,
+    "avatar": null,
+    "createdAt": "2026-09-27T17:15:00.295Z"
+  },
+  {
+    "id": "USR-1790531464292-1449",
+    "name": "Test User",
+    "email": "testuser123@test.com",
+    "phone": "9876543210",
+    "passwordHash": "$2b$10$iKJEAMx4B33oCEkyRQRxtOdByXwiU1OagbqHPfY3aTxm0TMhP1Dg6",
+    "role": "customer",
+    "googleId": null,
+    "avatar": null,
+    "createdAt": "2026-09-27T17:51:04.291Z"
+  },
+  {
+    "id": "USR-1790586717406-6695",
+    "name": "SIVA K",
+    "email": "24ucs243@anjaconline.or",
+    "phone": "7267676747",
+    "passwordHash": "$2b$10$oCeukPzc2EpaZZUglUtLKeLJ4k3gtSC/DYNOGozBmLbs82aZ4Hg1m",
+    "role": "customer",
+    "googleId": null,
+    "avatar": null,
+    "createdAt": "2026-09-28T09:11:57.406Z"
+  },
+  {
+    "id": "USR-1790587019296-5601",
+    "name": "umar",
+    "email": "umar999@gmail.com",
+    "phone": "9876543210",
+    "passwordHash": "$2b$10$stXfiKO00fid6aMe4upNCuwe04xc7xwmB5JDt3hWg3SsC5VSCD3IK",
+    "role": "customer",
+    "googleId": null,
+    "avatar": null,
+    "createdAt": "2026-09-28T09:16:59.296Z"
+  },
+  {
+    "id": "USR-1790596598139-2415",
+    "name": "SANTHOSH A",
+    "email": "24ucs239@anjaconline.org",
+    "phone": "",
+    "passwordHash": "$2b$10$A.Wk3sWWwXwN.BQ94mKW1elGqiFP6.vQr.dVtKon8zwE1Oaf0P7x2",
+    "role": "customer",
+    "googleId": "115676209681693803319",
+    "avatar": "https://lh3.googleusercontent.com/a/ACg8ocIDoDD7S15UpXo7zYBpEd4SjX8VQWf5txpDTuhozxwgQxuQQX4=s96-c",
+    "createdAt": "2026-09-28T11:56:38.139Z"
+  },
+  {
+    "id": "USR-1790660917829-2160",
+    "name": "Ravi Kumar",
+    "email": "otpcustomer1790660917342@gmail.com",
+    "phone": "9788112233",
+    "passwordHash": "$2b$10$E99PI/L1iwwPvVY8.IUcoeYynf6eUN1F2sf5XB.ZCQ11EzKGxSu8u",
+    "role": "customer",
+    "googleId": null,
+    "avatar": null,
+    "createdAt": "2026-09-29T05:48:37.829Z"
   }
 ]

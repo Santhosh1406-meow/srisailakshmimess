@@ -204,6 +204,38 @@ class UserService {
     return this.users.find((u) => (u.phone || '').replace(/\D/g, '').slice(-10) === cleanPhone) || null;
   }
 
+  async updatePasswordByPhone(phone, newPassword) {
+    const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
+    const user = await this.findByPhone(cleanPhone);
+    if (!user) {
+      const err = new Error('No account found with this mobile number.');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const passwordHash = await User.hashPassword(newPassword);
+
+    if (isDbConnected()) {
+      try {
+        await query(
+          'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+          [passwordHash, user.id]
+        );
+        console.log(`✅ [UserService] Successfully updated password for user ${user.id} (${cleanPhone}) in Neon DB.`);
+      } catch (dbErr) {
+        console.error('[UserService] Failed to update password in Neon DB:', dbErr.message);
+        throw new Error(`Database error updating password: ${dbErr.message}`);
+      }
+    }
+
+    const localUser = this.users.find((u) => u.id === user.id);
+    if (localUser) {
+      localUser.passwordHash = passwordHash;
+      this._persist();
+    }
+    return user;
+  }
+
   async getAllUsers() {
     if (isDbConnected()) {
       try {

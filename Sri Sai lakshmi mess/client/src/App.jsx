@@ -13,6 +13,7 @@ import ContactPage from './pages/Contact';
 import NotFound from './pages/NotFound';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
 import OrderTracking from './pages/OrderTracking';
 import Admin from './pages/Admin';
 import CustomerDashboard from './pages/CustomerDashboard';
@@ -25,6 +26,7 @@ export default function App() {
           {/* Auth pages (no layout wrapper) */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
           {/* Main site with layout */}
           <Route path="/" element={<MainLayout />}>

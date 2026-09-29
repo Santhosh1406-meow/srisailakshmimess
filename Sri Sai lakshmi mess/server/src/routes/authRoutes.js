@@ -12,6 +12,12 @@ router.post('/login', authController.login);
 // POST /api/auth/google (Google OAuth sign-in & register)
 router.post('/google', authController.googleLogin);
 
+// POST /api/auth/forgot-password/verify-phone
+router.post('/forgot-password/verify-phone', authController.verifyPhone);
+
+// POST /api/auth/forgot-password/reset
+router.post('/forgot-password/reset', authController.resetPassword);
+
 // GET /api/auth/me  (requires token)
 router.get('/me', protect, authController.getMe);
 

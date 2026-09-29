@@ -4,6 +4,21 @@ const googleAuthService = require('../services/googleAuthService');
 const { jwtSecret: JWT_SECRET, jwtExpiresIn: JWT_EXPIRES_IN } = require('../config');
 
 /**
+ * Normalize an Indian mobile phone number to standard 10 digits
+ */
+function normalizeIndianPhone(phone) {
+  if (!phone) return '';
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.startsWith('91') && digits.length === 12) {
+    return digits.slice(2);
+  }
+  if (digits.startsWith('0') && digits.length === 11) {
+    return digits.slice(1);
+  }
+  return digits.slice(-10);
+}
+
+/**
  * Generate a signed JWT for a user
  */
 function generateToken(user) {
@@ -26,9 +41,11 @@ exports.register = async (req, res, next) => {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.push('Valid email address is required.');
     if (!password || password.length < 6) errors.push('Password must be at least 6 characters.');
 
-    // 10-digit Indian Mobile Number validation (optional if left blank)
+    // 10-digit Indian Mobile Number is required
     let normalizedPhone = '';
-    if (phone && String(phone).trim() !== '') {
+    if (!phone || String(phone).trim() === '') {
+      errors.push('Mobile number is required.');
+    } else {
       const rawPhone = String(phone).replace(/\s+/g, '').replace(/[-()+]/g, '');
       normalizedPhone = rawPhone;
       if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
@@ -45,7 +62,16 @@ exports.register = async (req, res, next) => {
       return res.status(400).json({ success: false, errors });
     }
 
-    const user = await userService.register({ name, email, phone: normalizedPhone || phone, password });
+    // Check if phone number is already registered
+    const existingPhoneUser = await userService.findByPhone(normalizedPhone);
+    if (existingPhoneUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this mobile number already exists.'
+      });
+    }
+
+    const user = await userService.register({ name, email, phone: normalizedPhone, password });
     const token = generateToken(user);
 
     return res.status(201).json({
@@ -169,6 +195,99 @@ exports.getCustomers = async (req, res, next) => {
     const customers = await userService.getAllCustomers();
     return res.status(200).json({ success: true, count: customers.length, data: customers });
   } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/auth/forgot-password/verify-phone
+ * Optional check: Verify that the customer account exists for this mobile number
+ */
+exports.verifyPhone = async (req, res, next) => {
+  try {
+    const { phone } = req.body;
+    if (!phone || String(phone).trim() === '') {
+      return res.status(400).json({ success: false, message: 'Please enter your registered mobile number.' });
+    }
+
+    const cleanPhone = normalizeIndianPhone(phone);
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.'
+      });
+    }
+
+    const user = await userService.findByPhone(cleanPhone);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: `No account found with mobile number +91 ${cleanPhone}. Please verify your number or create an account.`
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Account found for ${user.name}.`,
+      phone: cleanPhone,
+      userName: user.name
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/auth/forgot-password/reset
+ * Reset password directly by verifying registered mobile number (No OTP required)
+ */
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { phone, newPassword } = req.body;
+
+    if (!phone || String(phone).trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Registered mobile number is required.'
+      });
+    }
+
+    if (!newPassword || String(newPassword).length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 6 characters long.'
+      });
+    }
+
+    const cleanPhone = normalizeIndianPhone(phone);
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.'
+      });
+    }
+
+    // Verify user exists
+    const existingUser = await userService.findByPhone(cleanPhone);
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        message: `No registered account found with mobile number +91 ${cleanPhone}. Please verify your number or sign up.`
+      });
+    }
+
+    // Update password in database and storage
+    const updatedUser = await userService.updatePasswordByPhone(cleanPhone, newPassword);
+
+    return res.status(200).json({
+      success: true,
+      message: `Password reset successfully for ${updatedUser.name}! You can now sign in with your new password.`,
+      email: updatedUser.email
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
     next(error);
   }
 };

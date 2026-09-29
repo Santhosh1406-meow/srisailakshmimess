@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch --watch-path=src/routes --watch-path=src/controllers --watch-path=src/models --watch-path=src/services --watch-path=src/config server.js"
   },
   "keywords": [
     "restaurant",
